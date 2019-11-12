@@ -49,8 +49,8 @@ namespace stree
 {
 
 const size_t DEGREE = 64;
-const size_t MAX_KEY_SIZE = 20;
-const size_t MAX_VALUE_SIZE = 200;
+const size_t MAX_KEY_SIZE = 1024;
+const size_t MAX_VALUE_SIZE = 1024;
 
 typedef persistent::b_tree<pstring<MAX_KEY_SIZE>, pstring<MAX_VALUE_SIZE>, DEGREE>
 	btree_type;
@@ -66,8 +66,15 @@ public:
 	std::string name() final;
 
 	status count_all(std::size_t &cnt) final;
+	status count_above(string_view key, std::size_t &cnt) final;
+	status count_below(string_view key, std::size_t &cnt) final;
+	status count_between(string_view key1, string_view key2, std::size_t &cnt) final;
 
 	status get_all(get_kv_callback *callback, void *arg) final;
+	status get_above(string_view key, get_kv_callback *callback, void *arg) final;
+	status get_below(string_view key, get_kv_callback *callback, void *arg) final;
+	status get_between(string_view key1, string_view key2, get_kv_callback *callback,
+			   void *arg) final;
 
 	status exists(string_view key) final;
 
@@ -76,6 +83,40 @@ public:
 	status put(string_view key, string_view value) final;
 
 	status remove(string_view key) final;
+
+	kv_iterator* begin() final;
+
+	kv_iterator* end() final;
+
+	class bidirection_iterator : public kv_iterator {
+	public:
+		bidirection_iterator();
+		explicit bidirection_iterator(internal::stree::btree_type *btree, bool seek_end);
+		~bidirection_iterator();
+		kv_iterator &operator++() override;
+		kv_iterator operator++(int) override;
+		kv_iterator &operator--() override;
+		kv_iterator operator--(int) override;
+		bool operator==(const bidirection_iterator &r);
+		bool operator!=(const bidirection_iterator &r);
+		string_view operator*() const override;
+		string_view key() const override;
+		string_view value() const override;
+		bool valid();
+		void seek_to_first() override;
+		void seek_to_last() override;
+		void seek(string_view &key) override;
+		void seek_for_prev(string_view &key) override;
+		void seek_for_next(string_view &key) override;
+
+	private:
+		internal::stree::btree_type::iterator m_cur;
+		internal::stree::btree_type::iterator m_beg;
+		internal::stree::btree_type::iterator m_end;
+
+		internal::stree::btree_type::iterator lower_bound(string_view &key);
+		internal::stree::btree_type::iterator upper_bound(string_view &key);
+	};
 
 private:
 	stree(const stree &);

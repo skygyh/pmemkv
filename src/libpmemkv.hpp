@@ -215,6 +215,30 @@ private:
 	pmemkv_config *_config;
 };
 
+class kv_iterator {
+public:
+	kv_iterator();
+	virtual ~kv_iterator();
+	virtual kv_iterator &operator++();
+	virtual kv_iterator operator++(int);
+	virtual kv_iterator &operator--();
+	virtual kv_iterator operator--(int);
+	virtual bool operator==(const kv_iterator &r);
+	virtual bool operator!=(const kv_iterator &r);
+	virtual string_view operator*() const;
+	virtual string_view key() const;
+	virtual string_view value() const;
+	virtual bool valid();
+	virtual void seek_to_first();
+	virtual void seek_to_last();
+	virtual void seek(string_view &key);
+	virtual void seek_for_prev(string_view &key);
+	virtual void seek_for_next(string_view &key);
+
+private:
+	pmemkv_iterator *_iterator;
+};
+
 /*! \class db
 	\brief Main pmemkv class, it provides functions to operate on data in database.
 
@@ -266,6 +290,9 @@ public:
 
 	status put(string_view key, string_view value) noexcept;
 	status remove(string_view key) noexcept;
+
+	kv_iterator* begin();
+	kv_iterator* end();
 
 private:
 	pmemkv_db *_db;
@@ -1072,6 +1099,99 @@ inline status db::put(string_view key, string_view value) noexcept
 inline status db::remove(string_view key) noexcept
 {
 	return static_cast<status>(pmemkv_remove(this->_db, key.data(), key.size()));
+}
+
+inline kv_iterator* db::begin()
+{
+	return reinterpret_cast<kv_iterator*>(pmemkv_begin(this->_db));
+}
+
+inline kv_iterator* db::end()
+{
+	return reinterpret_cast<kv_iterator*>(pmemkv_end(this->_db));
+}
+
+inline kv_iterator::kv_iterator()
+{
+}
+
+inline kv_iterator::~kv_iterator()
+{
+}
+
+inline kv_iterator &kv_iterator::operator++()
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline kv_iterator kv_iterator::operator++(int)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline kv_iterator &kv_iterator::operator--()
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline kv_iterator kv_iterator::operator--(int)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline bool kv_iterator::operator==(const kv_iterator &r)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline bool kv_iterator::operator!=(const kv_iterator &r)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline string_view kv_iterator::operator*() const
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline string_view kv_iterator::key() const
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline string_view kv_iterator::value() const
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline bool kv_iterator::valid()
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline void kv_iterator::seek_to_first()
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline void kv_iterator::seek_to_last()
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline void kv_iterator::seek(string_view &key)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline void kv_iterator::seek_for_prev(string_view &key)
+{
+	throw std::runtime_error("iterator not supported");
+}
+
+inline void kv_iterator::seek_for_next(string_view &key)
+{
+	throw std::runtime_error("iterator not supported");
 }
 
 /**

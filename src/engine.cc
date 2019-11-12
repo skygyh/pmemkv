@@ -202,5 +202,14 @@ status engine_base::exists(string_view key)
 	return status::NOT_SUPPORTED;
 }
 
+kv_iterator* engine_base::begin()
+{
+	throw internal::not_supported("iterator not supported");
+}
+kv_iterator* engine_base::end()
+{
+	throw internal::not_supported("iterator not supported");
+}
+
 } // namespace kv
 } // namespace pmem

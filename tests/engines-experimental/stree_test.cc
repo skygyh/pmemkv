@@ -33,6 +33,7 @@
 #include "../../src/engines-experimental/stree.h"
 #include "../../src/libpmemkv.hpp"
 #include "gtest/gtest.h"
+#include <string>
 
 using namespace pmem::kv;
 
@@ -317,6 +318,28 @@ TEST_F(STreeTest, PutTest)
 	ASSERT_TRUE(kv->get("key1", &new_value3) == status::OK && new_value3 == "?");
 }
 
+TEST_F(STreeTest, PutLoopTest)
+{
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == 0);
+	const int reserved_size = 4 * 1024 * 1024;
+	// Approximate estimation of max key count that our stree can hold :
+	// (MEMORY_SIZE - RESERVED_META_SIZE) / 2 / (KEY_SIZE + VALUE_SIZE) * RATIO, where
+	// RATIO is 0.9
+	const int total_key_count = (SIZE - reserved_size) / 2 /
+		(internal::stree::MAX_KEY_SIZE + internal::stree::MAX_VALUE_SIZE) * 9 /
+		10;
+	for (int i = 0; i < total_key_count; i++) {
+		ASSERT_TRUE(kv->put(std::to_string(i), std::to_string(i)) == status::OK)
+			<< errormsg();
+	}
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == total_key_count);
+}
+
 TEST_F(STreeTest, PutKeysOfDifferentSizesTest)
 {
 	std::string value;
@@ -508,6 +531,207 @@ TEST_F(STreeTest, UsesGetAllTest)
 		},
 		&result);
 	ASSERT_TRUE(result == "<1>,<2>|<RR>,<记!>|");
+}
+
+TEST_F(STreeTest, UsesGetAboveTest)
+{
+	ASSERT_TRUE(kv->put("aaa", "1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("bbb", "2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ccc", "3") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("rrr", "4") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("sss", "5") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ttt", "6") == status::OK) << errormsg();
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_above("ccc", cnt) == status::OK);
+	ASSERT_EQ(4, cnt);
+
+	std::string result;
+	kv->get_above("ccc",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result == "<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_above("a", cnt) == status::OK);
+	ASSERT_EQ(6, cnt);
+	result.clear();
+	kv->get_above("a",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result ==
+		    "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_above("ddd", cnt) == status::OK);
+	ASSERT_EQ(3, cnt);
+	result.clear();
+	kv->get_above("ddd",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result == "<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+}
+
+TEST_F(STreeTest, UsesGetBelowTest)
+{
+	ASSERT_TRUE(kv->put("aaa", "1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("bbb", "2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ccc", "3") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("rrr", "4") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("sss", "5") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ttt", "6") == status::OK) << errormsg();
+
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_below("ccc", cnt) == status::OK);
+	ASSERT_TRUE(cnt == 2);
+	cnt = std::numeric_limits<std::size_t>::max();
+
+	std::string result;
+	kv->get_below("ccc",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result == "<aaa>,<1>|<bbb>,<2>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_below("ddd", cnt) == status::OK);
+	ASSERT_EQ(3, cnt);
+	result.clear();
+	kv->get_below("ddd",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result == "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_below("zzz", cnt) == status::OK);
+	ASSERT_EQ(6, cnt);
+	result.clear();
+	kv->get_below("zzz",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
+
+			      return 0;
+		      },
+		      &result);
+	ASSERT_TRUE(result ==
+		    "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+}
+
+TEST_F(STreeTest, UsesGetBetweenTest)
+{
+	ASSERT_TRUE(kv->put("aaa", "1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("bbb", "2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ccc", "3") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("rrr", "4") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("sss", "5") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("ttt", "6") == status::OK) << errormsg();
+
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_between("ccc", "ttt", cnt) == status::OK);
+	ASSERT_EQ(3, cnt);
+	cnt = std::numeric_limits<std::size_t>::max();
+
+	std::string result;
+	kv->get_between(
+		"ccc", "ttt",
+		[](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			const auto c = ((std::string *)arg);
+			c->append("<");
+			c->append(std::string(k, kb));
+			c->append(">,<");
+			c->append(std::string(v, vb));
+			c->append(">|");
+
+			return 0;
+		},
+		&result);
+	ASSERT_TRUE(result == "<ccc>,<3>|<rrr>,<4>|<sss>,<5>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_between("ddd", "zzz", cnt) == status::OK);
+	ASSERT_EQ(3, cnt);
+	result.clear();
+	kv->get_between(
+		"ddd", "zzz",
+		[](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			const auto c = ((std::string *)arg);
+			c->append("<");
+			c->append(std::string(k, kb));
+			c->append(">,<");
+			c->append(std::string(v, vb));
+			c->append(">|");
+
+			return 0;
+		},
+		&result);
+	ASSERT_TRUE(result == "<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+
+	cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_between("", "zzz", cnt) == status::OK);
+	ASSERT_EQ(6, cnt);
+	result.clear();
+	kv->get_between(
+		"", "zzz",
+		[](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			const auto c = ((std::string *)arg);
+			c->append("<");
+			c->append(std::string(k, kb));
+			c->append(">,<");
+			c->append(std::string(v, vb));
+			c->append(">|");
+
+			return 0;
+		},
+		&result);
+	ASSERT_TRUE(result == "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
 }
 
 // =============================================================================================
@@ -784,6 +1008,281 @@ TEST_F(STreeTest, SingleInnerNodeDescendingAfterRecoveryTest2)
 	std::size_t cnt = std::numeric_limits<std::size_t>::max();
 	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
 	ASSERT_TRUE(cnt == SINGLE_INNER_LIMIT);
+}
+
+TEST_F(STreeTest, IteratorTest)
+{
+	string_view EMPTY = "";
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == 0);
+	ASSERT_TRUE(kv->put("iterator_key1", "value1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key2", "value2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key3", "value3") == status::OK) << errormsg();
+
+	kv_iterator *it = kv->begin();
+	// ASSERT_TRUE(it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	string_view k1("iterator_key1");
+	string_view v1("value1");
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	string_view k2("iterator_key2");
+	string_view v2("value2");
+	ASSERT_TRUE((**it).compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v2) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	string_view k3("iterator_key3");
+	string_view v3("value3");
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it == kv->end()) << errormsg();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v2) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it == kv->end()) << errormsg();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	it = kv->end();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(EMPTY) == 0) << errormsg();
+
+	delete it;
+}
+
+TEST_F(STreeTest, ReverseIteratorTest)
+{
+	string_view EMPTY = "";
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == 0);
+	ASSERT_TRUE(kv->put("iterator_key3", "value3") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key2", "value2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key1", "value1") == status::OK) << errormsg();
+
+	kv_iterator *it = kv->end();
+	// ASSERT_TRUE(it == kv->end()) << errormsg();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	--(*it);
+	string_view k3("iterator_key3");
+	string_view v3("value3");
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	string_view k2("iterator_key2");
+	string_view v2("value2");
+	ASSERT_TRUE((**it).compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v2) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	string_view k1("iterator_key1");
+	string_view v1("value1");
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	--(*it);
+	// ASSERT_TRUE(*it == kv->end()) << errormsg();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k2) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v2) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it != kv->end()) << errormsg();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	++(*it);
+	// ASSERT_TRUE(*it == kv->end()) << errormsg();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(EMPTY) == 0) << errormsg();
+
+	delete it;
+}
+
+TEST_F(STreeTest, IteratorSeekTest)
+{
+	string_view EMPTY = "";
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == 0);
+	ASSERT_TRUE(kv->put("iterator_key1", "value1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key3", "value3") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key5", "value5") == status::OK) << errormsg();
+
+	kv_iterator *it = kv->begin();
+	string_view k1("iterator_key1");
+	string_view v1("value1");
+	it->seek(k1);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	string_view k2("iterator_key2");
+	string_view k3("iterator_key3");
+	string_view v3("value3");
+	it->seek(k2);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	it->seek(k3);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	string_view k4("iterator_key4");
+	string_view k5("iterator_key5");
+	string_view v5("value5");
+	it->seek(k4);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v5) == 0) << errormsg();
+
+	it->seek(k5);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v5) == 0) << errormsg();
+
+	// Seek previous
+	it->seek_for_prev(EMPTY);
+	ASSERT_TRUE(!it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(EMPTY) == 0) << errormsg();
+
+	it->seek_for_prev(k1);
+	ASSERT_TRUE(!it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(EMPTY) == 0) << errormsg();
+
+	it->seek_for_prev(k2);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	it->seek_for_prev(k3);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	it->seek_for_prev(k4);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	it->seek_for_prev(k5);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	// Seek next
+	it->seek_for_next(EMPTY);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k1) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v1) == 0) << errormsg();
+
+	it->seek_for_next(k1);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	it->seek_for_next(k2);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k3) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v3) == 0) << errormsg();
+
+	it->seek_for_next(k3);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v5) == 0) << errormsg();
+
+	it->seek_for_next(k4);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(k5) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(v5) == 0) << errormsg();
+
+	it->seek_for_next(k5);
+	ASSERT_TRUE(!it->valid()) << errormsg();
+	ASSERT_TRUE((**it).compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->key().compare(EMPTY) == 0) << errormsg();
+	ASSERT_TRUE(it->value().compare(EMPTY) == 0) << errormsg();
+
+	delete it;
 }
 
 // =============================================================================================

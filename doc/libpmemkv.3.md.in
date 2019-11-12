@@ -196,6 +196,16 @@ If an engine does not support a certain function, it will return PMEMKV\_STATUS\
 :	Removes record with key `k` of length `kb`.
 	This function is guaranteed to be implemented by all engines.
 
+`pmemkv_iterator* pmemkv_begin(pmemkv_db *db);`
+
+:	Get db iterator and seek to begin.
+	This function is not guaranteed to be implemented by all engines.
+
+`pmemkv_iterator* pmemkv_end(pmemkv_db *db);`
+
+:	Get db iterator and seek to end.
+	This function is not guaranteed to be implemented by all engines.
+
 `const char *pmemkv_errormsg(void);`
 
 :	Returns a human readable string describing the last error.
