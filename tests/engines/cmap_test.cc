@@ -535,6 +535,56 @@ TEST_F(CMapTest, UsesGetAllTest_TRACERS_MPHD)
 	ASSERT_TRUE(result == "<1>,<2>|<RR>,<记!>|");
 }
 
+TEST_F(CMapTest, IteratorTest_TRACERS_MPHD)
+{
+	std::size_t cnt = std::numeric_limits<std::size_t>::max();
+	ASSERT_TRUE(kv->count_all(cnt) == status::OK);
+	ASSERT_TRUE(cnt == 0);
+	ASSERT_TRUE(kv->put("iterator_key1", "value1") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key2", "value2") == status::OK) << errormsg();
+	ASSERT_TRUE(kv->put("iterator_key3", "value3") == status::OK) << errormsg();
+
+	std::vector<string_view> result_keys;
+	std::vector<string_view> result_values;
+	kv_iterator *it = kv->begin();
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE(it->key().compare((**it)) == 0) << errormsg();
+	result_keys.push_back(it->key());
+	result_values.push_back(it->value());
+
+	++(*it);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE(it->key().compare((**it)) == 0) << errormsg();
+	result_keys.push_back(it->key());
+	result_values.push_back(it->value());
+
+	++(*it);
+	ASSERT_TRUE(it->valid()) << errormsg();
+	ASSERT_TRUE(it->key().compare((**it)) == 0) << errormsg();
+	result_keys.push_back(it->key());
+	result_values.push_back(it->value());
+
+	++(*it);
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	sort(result_keys.begin(), result_keys.end(), [&](string_view & p, string_view & q) {
+		return p.compare(q) < 0;
+	});
+	sort(result_values.begin(), result_values.end(), [&](string_view & p, string_view & q) {
+		return p.compare(q) < 0;
+	});
+	for (unsigned int i = 1; i <= 3; i++)
+	{
+		ASSERT_TRUE(result_keys[i-1].compare("iterator_key" + std::to_string(i)) == 0) << errormsg();
+		ASSERT_TRUE(result_values[i - 1].compare("value" + std::to_string(i)) == 0) << errormsg();
+	}
+
+	it = kv->end();
+	ASSERT_TRUE(!it->valid()) << errormsg();
+
+	delete it;
+}
+
 TEST_F(CMapTest, SimpleMultithreadedTest_TRACERS_MPHD)
 {
 	size_t threads_number = 8;

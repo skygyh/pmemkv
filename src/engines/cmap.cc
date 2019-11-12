@@ -147,5 +147,166 @@ void cmap::Recover()
 	}
 }
 
+kv_iterator *cmap::begin()
+{
+	check_outside_tx();
+	LOG("Creating begin kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(container, false);
+	return pit;
+}
+
+kv_iterator *cmap::end()
+{
+	check_outside_tx();
+	LOG("Creating end kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(container, true);
+	return pit;
+}
+
+cmap::bidirection_iterator::bidirection_iterator()
+{
+}
+
+cmap::bidirection_iterator::bidirection_iterator(internal::cmap::map_t * _container,
+	bool seek_end = false)
+	: m_beg(_container->begin()), m_end(_container->end())
+{
+	if (seek_end) {
+		m_cur = _container->end();
+	}
+	else {
+		m_cur = _container->begin();
+	}
+}
+
+cmap::bidirection_iterator::~bidirection_iterator()
+{
+}
+
+// Prefix ++ overload
+kv_iterator &cmap::bidirection_iterator::operator++()
+{
+	if (m_cur == m_end) {
+		m_cur = m_beg;
+	}
+	else {
+		++m_cur;
+	}
+	return *this;
+}
+
+// Postfix ++ overload
+kv_iterator cmap::bidirection_iterator::operator++(int)
+{
+	kv_iterator old = *this;
+	++*this;
+	return old;
+}
+
+// Prefix -- overload
+kv_iterator &cmap::bidirection_iterator::operator--()
+{
+	throw std::runtime_error("seek_to_last not supported");
+	/**
+	 * [TODO] reverse iterator is not supported yet by hash_map_iterator. Check more in include/libpmemobj++/container/concurrent_hash_map.hpp
+	 * Comment out below lines until it is supported by hash_map_iterator.
+	 */
+	//if (m_cur == m_beg) {
+	//	m_cur = m_end;
+	//}
+	//else {
+	//	--m_cur;
+	//}
+	//return *this;
+}
+// Postfix -- overload
+kv_iterator cmap::bidirection_iterator::operator--(int)
+{
+	kv_iterator old = *this;
+	--*this;
+	return old;
+}
+
+bool cmap::bidirection_iterator::operator==(const bidirection_iterator &r)
+{
+	return m_cur == r.m_cur;
+}
+
+bool cmap::bidirection_iterator::operator!=(const bidirection_iterator &r)
+{
+	return !(*this == r);
+}
+
+// return key only
+string_view cmap::bidirection_iterator::operator*() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view cmap::bidirection_iterator::key() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view cmap::bidirection_iterator::value() const
+{
+	return string_view((*m_cur).second.c_str());
+}
+
+bool cmap::bidirection_iterator::valid()
+{
+	return m_cur != m_end;
+}
+
+void cmap::bidirection_iterator::seek_to_first()
+{
+	m_cur = m_beg;
+}
+
+void cmap::bidirection_iterator::seek_to_last()
+{
+	throw std::runtime_error("seek_to_last not supported");
+	/**
+	 * [TODO] reverse iterator is not supported yet by hash_map_iterator. Check more in include/libpmemobj++/container/concurrent_hash_map.hpp
+	 * Comment out below two lines unless it is supported by hash_map_iterator.
+	 */
+	//m_cur = m_end;
+	//--m_cur;
+}
+
+void cmap::bidirection_iterator::seek(string_view &key)
+{
+	for (m_cur = m_beg; m_cur != m_end; ++m_cur) {
+		string_view cur_key((*m_cur).first.c_str(), (*m_cur).first.size());
+		if (key.compare(cur_key) == 0) {
+			break;
+		}
+	}
+}
+
+void cmap::bidirection_iterator::seek_for_prev(string_view &key)
+{
+	throw std::runtime_error("seek_for_prev not supported");
+	/**
+	 * [TODO] reverse iterator is not supported yet by hash_map_iterator. Check more in include/libpmemobj++/container/concurrent_hash_map.hpp
+	 * Comment out below lines until it is supported by hash_map_iterator.
+	 */
+	//seek(key);
+	//if (m_cur == m_beg) {
+	//	m_cur = m_end;
+	//	return;
+	//}
+	//--m_cur;
+}
+
+void cmap::bidirection_iterator::seek_for_next(string_view &key)
+{
+	seek(key);
+	if (m_cur == m_end) {
+		return;
+	}
+	++m_cur;
+}
+
 } // namespace kv
 } // namespace pmem

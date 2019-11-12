@@ -111,8 +111,7 @@ status stree::count_below(string_view key, std::size_t &cnt)
 
 status stree::count_between(string_view key1, string_view key2, std::size_t &cnt)
 {
-	LOG("count_between key range=[" << std::string(key1.data(), key1.size()) << ","
-					<< std::string(key2.data(), key2.size()) << ")");
+	LOG("count_between key range=[" << std::string(key1.data(), key1.size()) <<"," << std::string(key2.data(), key2.size()) << ")");
 	check_outside_tx();
 
 	internal::stree::btree_type::iterator it1 = my_btree->find_equal_greater(
@@ -169,8 +168,7 @@ status stree::get_below(string_view key, get_kv_callback *callback, void *arg)
 	while (it != my_btree->end()) {
 		if ((*it).first > pskey || (*it).first == pskey)
 			break;
-		auto ret = callback((*it).first.c_str(), (*it).first.size(),
-				    (*it).second.c_str(), (*it).second.size(), arg);
+		auto ret = callback((*it).first.c_str(), (*it).first.size(), (*it).second.c_str(), (*it).second.size(), arg);
 		if (ret != 0)
 			return status::STOPPED_BY_CB;
 		it++;
@@ -183,17 +181,16 @@ status stree::get_below(string_view key, get_kv_callback *callback, void *arg)
 status stree::get_between(string_view key1, string_view key2, get_kv_callback *callback,
 			  void *arg)
 {
-	LOG("get_between key range=[" << std::string(key1.data(), key1.size()) << ","
-				      << std::string(key2.data(), key2.size()) << ")");
+	LOG("get_between key range=[" << std::string(key1.data(), key1.size()) <<"," << std::string(key2.data(), key2.size()) << ")");
 	check_outside_tx();
 	auto pskey1 = pstring<internal::stree::MAX_KEY_SIZE>(key1.data(), key1.size());
 	auto pskey2 = pstring<internal::stree::MAX_KEY_SIZE>(key2.data(), key2.size());
-	internal::stree::btree_type::iterator it = my_btree->find_equal_greater(pskey1);
+	internal::stree::btree_type::iterator it =
+		my_btree->find_equal_greater(pskey1);
 	while (it != my_btree->end()) {
 		if ((*it).first > pskey2 || (*it).first == pskey2)
 			break;
-		auto ret = callback((*it).first.c_str(), (*it).first.size(),
-				    (*it).second.c_str(), (*it).second.size(), arg);
+		auto ret = callback((*it).first.c_str(), (*it).first.size(), (*it).second.c_str(), (*it).second.size(), arg);
 		if (ret != 0)
 			return status::STOPPED_BY_CB;
 		it++;
@@ -339,6 +336,7 @@ kv_iterator &stree::bidirection_iterator::operator--()
 	}
 	return *this;
 }
+
 // Postfix -- overload
 kv_iterator stree::bidirection_iterator::operator--(int)
 {
@@ -382,11 +380,13 @@ void stree::bidirection_iterator::seek_to_first()
 {
 	m_cur = m_beg;
 }
+
 void stree::bidirection_iterator::seek_to_last()
 {
 	m_cur = m_end;
 	--m_cur;
 }
+
 void stree::bidirection_iterator::seek(string_view &key)
 {
 	m_cur = lower_bound(key);
@@ -394,7 +394,7 @@ void stree::bidirection_iterator::seek(string_view &key)
 		return;
 	}
 	// below verbose check could be removed later
-	string_view lower_bound_key((*m_cur).first.begin(), 
+	string_view lower_bound_key((*m_cur).first.begin(),
 		(size_t)((*m_cur).first.end() - (*m_cur).first.begin()));
 	if (key.compare(lower_bound_key) > 0) {
 		// should never happen
@@ -411,6 +411,7 @@ void stree::bidirection_iterator::seek_for_prev(string_view &key)
 	}
 	--m_cur;
 }
+
 void stree::bidirection_iterator::seek_for_next(string_view &key)
 {
 	m_cur = upper_bound(key);
@@ -425,6 +426,7 @@ void stree::bidirection_iterator::seek_for_next(string_view &key)
 		m_cur = m_end;
 	}
 }
+
 internal::stree::btree_type::iterator
 stree::bidirection_iterator::lower_bound(string_view &key)
 {
@@ -453,7 +455,7 @@ stree::bidirection_iterator::upper_bound(string_view &key)
 	return std::upper_bound(m_beg, m_end, target,
 				[](const kv_pair_t &ctarget, const kv_pair_t &entry) {
 					return std::lexicographical_compare(
-						ctarget.first.begin(), ctarget.first.end(), 
+						ctarget.first.begin(), ctarget.first.end(),
 						entry.first.begin(), entry.first.end());
 				});
 }
