@@ -325,14 +325,10 @@ TEST_F(STreeTest, PutLoopTest)
 	ASSERT_TRUE(cnt == 0);
 	const int reserved_size = 4 * 1024 * 1024;
 	// Approximate estimation of max key count that our stree can hold :
-	// (MEMORY_SIZE - RESERVED_META_SIZE) / 2 / (KEY_SIZE + VALUE_SIZE) * RATIO, where
-	// RATIO is 0.9
-	const int total_key_count = (SIZE - reserved_size) / 2 /
-		(internal::stree::MAX_KEY_SIZE + internal::stree::MAX_VALUE_SIZE) * 9 /
-		10;
+	// (MEMORY_SIZE - RESERVED_META_SIZE) / 2 / (KEY_SIZE + VALUE_SIZE) * RATIO, where RATIO is 0.9
+	const int total_key_count = (SIZE - reserved_size) / 2 / (internal::stree::MAX_KEY_SIZE + internal::stree::MAX_VALUE_SIZE) * 9 / 10;
 	for (int i = 0; i < total_key_count; i++) {
-		ASSERT_TRUE(kv->put(std::to_string(i), std::to_string(i)) == status::OK)
-			<< errormsg();
+		ASSERT_TRUE(kv->put(std::to_string(i), std::to_string(i)) == status::OK) << errormsg();
 	}
 
 	cnt = std::numeric_limits<std::size_t>::max();
@@ -546,18 +542,19 @@ TEST_F(STreeTest, UsesGetAboveTest)
 	ASSERT_EQ(4, cnt);
 
 	std::string result;
-	kv->get_above("ccc",
-		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
-			      const auto c = ((std::string *)arg);
-			      c->append("<");
-			      c->append(std::string(k, kb));
-			      c->append(">,<");
-			      c->append(std::string(v, vb));
-			      c->append(">|");
+	kv->get_above(
+		"ccc",
+		[](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			const auto c = ((std::string *)arg);
+			c->append("<");
+			c->append(std::string(k, kb));
+			c->append(">,<");
+			c->append(std::string(v, vb));
+			c->append(">|");
 
-			      return 0;
-		      },
-		      &result);
+			return 0;
+		},
+		&result);
 	ASSERT_TRUE(result == "<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
 
 	cnt = std::numeric_limits<std::size_t>::max();
@@ -576,8 +573,7 @@ TEST_F(STreeTest, UsesGetAboveTest)
 			      return 0;
 		      },
 		      &result);
-	ASSERT_TRUE(result ==
-		    "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+	ASSERT_TRUE(result == "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
 
 	cnt = std::numeric_limits<std::size_t>::max();
 	ASSERT_TRUE(kv->count_above("ddd", cnt) == status::OK);
@@ -661,8 +657,7 @@ TEST_F(STreeTest, UsesGetBelowTest)
 			      return 0;
 		      },
 		      &result);
-	ASSERT_TRUE(result ==
-		    "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
+	ASSERT_TRUE(result == "<aaa>,<1>|<bbb>,<2>|<ccc>,<3>|<rrr>,<4>|<sss>,<5>|<ttt>,<6>|");
 }
 
 TEST_F(STreeTest, UsesGetBetweenTest)
@@ -681,18 +676,19 @@ TEST_F(STreeTest, UsesGetBetweenTest)
 
 	std::string result;
 	kv->get_between(
-		"ccc", "ttt",
-		[](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
-			const auto c = ((std::string *)arg);
-			c->append("<");
-			c->append(std::string(k, kb));
-			c->append(">,<");
-			c->append(std::string(v, vb));
-			c->append(">|");
+		"ccc",
+		"ttt",
+		      [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+			      const auto c = ((std::string *)arg);
+			      c->append("<");
+			      c->append(std::string(k, kb));
+			      c->append(">,<");
+			      c->append(std::string(v, vb));
+			      c->append(">|");
 
-			return 0;
-		},
-		&result);
+			      return 0;
+		      },
+		      &result);
 	ASSERT_TRUE(result == "<ccc>,<3>|<rrr>,<4>|<sss>,<5>|");
 
 	cnt = std::numeric_limits<std::size_t>::max();

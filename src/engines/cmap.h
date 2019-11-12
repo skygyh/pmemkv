@@ -83,7 +83,40 @@ public:
 
 	status remove(string_view key) final;
 
+
 	status defrag(double start_percent, double amount_percent) final;
+
+	kv_iterator* begin() final;
+
+	kv_iterator* end() final;
+
+	class bidirection_iterator : public kv_iterator {
+	public:
+		bidirection_iterator();
+		explicit bidirection_iterator(internal::cmap::map_t * _container, bool seek_end);
+		~bidirection_iterator();
+		kv_iterator &operator++() override;
+		kv_iterator operator++(int) override;
+		kv_iterator &operator--() override;
+		kv_iterator operator--(int) override;
+		bool operator==(const bidirection_iterator &r);
+		bool operator!=(const bidirection_iterator &r);
+		string_view operator*() const override;
+		string_view key() const override;
+		string_view value() const override;
+		bool valid();
+		void seek_to_first() override;
+		void seek_to_last() override;
+		void seek(string_view &key) override;
+		void seek_for_prev(string_view &key) override;
+		void seek_for_next(string_view &key) override;
+
+	private:
+		internal::cmap::map_t::iterator m_cur;
+		internal::cmap::map_t::iterator m_beg;
+		internal::cmap::map_t::iterator m_end;
+	};
+>>>>>>> Add iterator support on cmap and formating code
 
 private:
 	void Recover();
