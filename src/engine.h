@@ -54,6 +54,9 @@ public:
 	virtual status remove(string_view key) = 0;
 	virtual status defrag(double start_percent, double amount_percent);
 
+	virtual kv_iterator* begin();
+	virtual kv_iterator* end();
+
 private:
 	static void check_config_null(const std::string &engine_name,
 				      std::unique_ptr<internal::config> &cfg);

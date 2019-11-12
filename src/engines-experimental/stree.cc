@@ -313,5 +313,190 @@ void stree::Recover()
 	}
 }
 
+kv_iterator *stree::begin()
+{
+	check_outside_tx();
+	LOG("Creating begin kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(my_btree, false);
+	return pit;
+}
+
+kv_iterator *stree::end()
+{
+	check_outside_tx();
+	LOG("Creating end kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(my_btree, true);
+	return pit;
+}
+
+stree::bidirection_iterator::bidirection_iterator()
+    : m_cur(nullptr), m_beg(nullptr), m_end(nullptr)
+{
+}
+
+stree::bidirection_iterator::bidirection_iterator(internal::stree::btree_type *btree,
+						  bool seek_end = false)
+    : m_cur(nullptr),
+      m_beg(btree->begin()),
+      m_end(btree->end())
+{
+	if (seek_end) {
+		m_cur = btree->end();
+	} else {
+		m_cur = btree->begin();
+	}
+}
+
+stree::bidirection_iterator::~bidirection_iterator()
+{
+}
+
+// Prefix ++ overload
+kv_iterator &stree::bidirection_iterator::operator++()
+{
+	if (m_cur == m_end) {
+		m_cur = m_beg;
+	} else {
+		++m_cur;
+	}
+	return *this;
+}
+// Postfix ++ overload
+kv_iterator stree::bidirection_iterator::operator++(int)
+{
+	kv_iterator old = *this;
+	++*this;
+	return old;
+}
+
+// Prefix -- overload
+kv_iterator &stree::bidirection_iterator::operator--()
+{
+	if (m_cur == m_beg) {
+		m_cur = m_end;
+	} else {
+		--m_cur;
+	}
+	return *this;
+}
+// Postfix -- overload
+kv_iterator stree::bidirection_iterator::operator--(int)
+{
+	kv_iterator old = *this;
+	--*this;
+	return old;
+}
+
+bool stree::bidirection_iterator::operator==(const bidirection_iterator &r)
+{
+	return m_cur == r.m_cur;
+}
+
+bool stree::bidirection_iterator::operator!=(const bidirection_iterator &r)
+{
+	return !(*this == r);
+}
+
+// return key only
+string_view stree::bidirection_iterator::operator*() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view stree::bidirection_iterator::key() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view stree::bidirection_iterator::value() const
+{
+	return string_view((*m_cur).second.c_str());
+}
+
+bool stree::bidirection_iterator::valid()
+{
+	return m_cur != m_end;
+}
+
+void stree::bidirection_iterator::seek_to_first()
+{
+	m_cur = m_beg;
+}
+void stree::bidirection_iterator::seek_to_last()
+{
+	m_cur = m_end;
+	--m_cur;
+}
+void stree::bidirection_iterator::seek(string_view &key)
+{
+	m_cur = lower_bound(key);
+	if (m_cur == m_end) {
+		return;
+	}
+	// below verbose check could be removed later
+	string_view lower_bound_key((*m_cur).first.begin(), 
+		(size_t)((*m_cur).first.end() - (*m_cur).first.begin()));
+	if (key.compare(lower_bound_key) > 0) {
+		// should never happen
+		m_cur = m_end;
+	}
+}
+
+void stree::bidirection_iterator::seek_for_prev(string_view &key)
+{
+	m_cur = lower_bound(key);
+	if (m_cur == m_beg) {
+		m_cur = m_end;
+		return;
+	}
+	--m_cur;
+}
+void stree::bidirection_iterator::seek_for_next(string_view &key)
+{
+	m_cur = upper_bound(key);
+	if (m_cur == m_end) {
+		return;
+	}
+	// below verbose check could be removed later
+	string_view upper_bound_key((*m_cur).first.begin(),
+		(size_t)((*m_cur).first.end() - (*m_cur).first.begin()));
+	if (key.compare(upper_bound_key) >= 0) {
+		// should never happen
+		m_cur = m_end;
+	}
+}
+internal::stree::btree_type::iterator
+stree::bidirection_iterator::lower_bound(string_view &key)
+{
+	typedef std::pair<pstring<internal::stree::MAX_KEY_SIZE>,
+			  pstring<internal::stree::MAX_VALUE_SIZE>>
+		kv_pair_t;
+	kv_pair_t target(pstring<internal::stree::MAX_KEY_SIZE>(key.data(), key.size()),
+			 pstring<internal::stree::MAX_VALUE_SIZE>(nullptr, 0));
+	return std::lower_bound(m_beg, m_end, target,
+				 [](const kv_pair_t &entry, const kv_pair_t &ctarget) {
+					 return std::lexicographical_compare(
+						 entry.first.begin(), entry.first.end(),
+						 ctarget.first.begin(),
+						 ctarget.first.end());
+				 });
+}
+
+internal::stree::btree_type::iterator
+stree::bidirection_iterator::upper_bound(string_view &key)
+{
+	typedef std::pair<pstring<internal::stree::MAX_KEY_SIZE>,
+			  pstring<internal::stree::MAX_VALUE_SIZE>>
+		kv_pair_t;
+	kv_pair_t target(pstring<internal::stree::MAX_KEY_SIZE>(key.data(), key.size()),
+			 pstring<internal::stree::MAX_VALUE_SIZE>(nullptr, 0));
+	return std::upper_bound(m_beg, m_end, target,
+				[](const kv_pair_t &ctarget, const kv_pair_t &entry) {
+					return std::lexicographical_compare(
+						ctarget.first.begin(), ctarget.first.end(), 
+						entry.first.begin(), entry.first.end());
+				});
+}
+
 } // namespace kv
 } // namespace pmem

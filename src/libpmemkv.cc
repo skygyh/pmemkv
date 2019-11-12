@@ -65,6 +65,30 @@ static inline int catch_and_return_status(const char *func_name, Function &&f)
 	}
 }
 
+template <typename Function>
+static inline pmemkv_iterator* catch_and_return_iterator(const char *func_name,
+							Function &&f)
+{
+	try {
+		return reinterpret_cast<pmemkv_iterator *>(f());
+	} catch (pmem::kv::internal::error &e) {
+		out_err_stream(func_name) << e.what();
+		return nullptr;
+	} catch (std::bad_alloc &e) {
+		out_err_stream(func_name) << e.what();
+		return nullptr;
+	} catch (std::runtime_error &e) {
+		out_err_stream(func_name) << e.what();
+		return nullptr;
+	} catch (pmem::transaction_scope_error &e) {
+		out_err_stream(func_name) << e.what();
+		return nullptr;
+	} catch (...) {
+		out_err_stream(func_name) << "Unspecified error";
+		return nullptr;
+	}
+}
+
 extern "C" {
 
 pmemkv_config *pmemkv_config_new(void)
@@ -472,6 +496,24 @@ int pmemkv_defrag(pmemkv_db *db, double start_percent, double amount_percent)
 	return catch_and_return_status(__func__, [&] {
 		return db_to_internal(db)->defrag(start_percent, amount_percent);
 	});
+}
+
+pmemkv_iterator* pmemkv_begin(pmemkv_db *db)
+{
+	if (!db)
+		return nullptr;
+
+	return catch_and_return_iterator(__func__,
+					 [&] { return db_to_internal(db)->begin();});
+}
+
+pmemkv_iterator* pmemkv_end(pmemkv_db *db)
+{
+	if (!db)
+		return nullptr;
+
+	return catch_and_return_iterator(__func__,
+				       [&] { return db_to_internal(db)->end();});
 }
 
 const char *pmemkv_errormsg(void)

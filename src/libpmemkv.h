@@ -26,6 +26,7 @@ extern "C" {
 
 typedef struct pmemkv_db pmemkv_db;
 typedef struct pmemkv_config pmemkv_config;
+typedef struct pmemkv_iterator pmemkv_iterator;
 
 typedef int pmemkv_get_kv_callback(const char *key, size_t keybytes, const char *value,
 				   size_t valuebytes, void *arg);
@@ -81,6 +82,10 @@ int pmemkv_put(pmemkv_db *db, const char *k, size_t kb, const char *v, size_t vb
 int pmemkv_remove(pmemkv_db *db, const char *k, size_t kb);
 
 int pmemkv_defrag(pmemkv_db *db, double start_percent, double amount_percent);
+
+pmemkv_iterator* pmemkv_begin(pmemkv_db *db);
+
+pmemkv_iterator* pmemkv_end(pmemkv_db *db);
 
 const char *pmemkv_errormsg(void);
 

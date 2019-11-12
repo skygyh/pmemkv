@@ -20,8 +20,8 @@ namespace stree
 {
 
 const size_t DEGREE = 64;
-const size_t MAX_KEY_SIZE = 20;
-const size_t MAX_VALUE_SIZE = 200;
+const size_t MAX_KEY_SIZE = 512;
+const size_t MAX_VALUE_SIZE = 1024;
 
 typedef persistent::b_tree<pstring<MAX_KEY_SIZE>, pstring<MAX_VALUE_SIZE>, DEGREE>
 	btree_type;
@@ -60,6 +60,40 @@ public:
 	status put(string_view key, string_view value) final;
 
 	status remove(string_view key) final;
+
+	kv_iterator* begin() final;
+
+	kv_iterator* end() final;
+
+	class bidirection_iterator : public kv_iterator {
+	public:
+		bidirection_iterator();
+		explicit bidirection_iterator(internal::stree::btree_type *btree, bool seek_end);
+		~bidirection_iterator();
+		kv_iterator &operator++() override;
+		kv_iterator operator++(int) override;
+		kv_iterator &operator--() override;
+		kv_iterator operator--(int) override;
+		bool operator==(const bidirection_iterator &r);
+		bool operator!=(const bidirection_iterator &r);
+		string_view operator*() const override;
+		string_view key() const override;
+		string_view value() const override;
+		bool valid();
+		void seek_to_first() override;
+		void seek_to_last() override;
+		void seek(string_view &key) override;
+		void seek_for_prev(string_view &key) override;
+		void seek_for_next(string_view &key) override;
+
+	private:
+		internal::stree::btree_type::iterator m_cur;
+		internal::stree::btree_type::iterator m_beg;
+		internal::stree::btree_type::iterator m_end;
+
+		internal::stree::btree_type::iterator lower_bound(string_view &key);
+		internal::stree::btree_type::iterator upper_bound(string_view &key);
+	};
 
 private:
 	stree(const stree &);
