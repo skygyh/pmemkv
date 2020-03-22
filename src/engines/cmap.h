@@ -83,7 +83,6 @@ public:
 
 	status remove(string_view key) final;
 
-
 	status defrag(double start_percent, double amount_percent) final;
 
 	kv_iterator* begin() final;
@@ -116,7 +115,6 @@ public:
 		internal::cmap::map_t::iterator m_beg;
 		internal::cmap::map_t::iterator m_end;
 	};
->>>>>>> Add iterator support on cmap and formating code
 
 private:
 	void Recover();

@@ -114,7 +114,8 @@ status stree::count_equal_below(string_view key, std::size_t &cnt)
 
 status stree::count_between(string_view key1, string_view key2, std::size_t &cnt)
 {
-	LOG("count_between key range=[" << std::string(key1.data(), key1.size()) <<"," << std::string(key2.data(), key2.size()) << ")");
+	LOG("count_between key range=[" << std::string(key1.data(), key1.size()) << ","
+					<< std::string(key2.data(), key2.size()) << ")");
 	check_outside_tx();
 
 	internal::stree::btree_type::iterator it1 = my_btree->upper_bound(
@@ -224,7 +225,8 @@ status stree::get_below(string_view key, get_kv_callback *callback, void *arg)
 status stree::get_between(string_view key1, string_view key2, get_kv_callback *callback,
 			  void *arg)
 {
-	LOG("get_between key range=[" << std::string(key1.data(), key1.size()) <<"," << std::string(key2.data(), key2.size()) << ")");
+	LOG("get_between key range=[" << std::string(key1.data(), key1.size()) << ","
+				      << std::string(key2.data(), key2.size()) << ")");
 	check_outside_tx();
 	auto pskey1 = pstring<internal::stree::MAX_KEY_SIZE>(key1.data(), key1.size());
 	auto pskey2 = pstring<internal::stree::MAX_KEY_SIZE>(key2.data(), key2.size());
