@@ -20,8 +20,8 @@ namespace stree
 {
 
 const size_t DEGREE = 64;
-const size_t MAX_KEY_SIZE = 256;
-const size_t MAX_VALUE_SIZE = 256;
+const size_t MAX_KEY_SIZE = 512;
+const size_t MAX_VALUE_SIZE = 512;
 
 typedef persistent::b_tree<pstring<MAX_KEY_SIZE>, pstring<MAX_VALUE_SIZE>, DEGREE>
 	btree_type;
