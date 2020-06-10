@@ -14,13 +14,15 @@ set(GLOBAL_TEST_ARGS
 	-DPARENT_DIR=${TEST_DIR}
 	-DTESTS_USE_FORCED_PMEM=${TESTS_USE_FORCED_PMEM}
 	-DTEST_ROOT_DIR=${TEST_ROOT_DIR})
-
 if(TRACE_TESTS)
 	set(GLOBAL_TEST_ARGS ${GLOBAL_TEST_ARGS} --trace-expand)
 endif()
 
 set(INCLUDE_DIRS ${LIBPMEMOBJ++_INCLUDE_DIRS} common/ ../src .)
 set(LIBS_DIRS ${LIBPMEMOBJ++_LIBRARY_DIRS})
+
+# List of supported Valgrind tracers
+set(vg_tracers memcheck helgrind drd pmemcheck)
 
 include_directories(${INCLUDE_DIRS})
 link_directories(${LIBS_DIRS})
@@ -71,23 +73,47 @@ function(find_pmempool)
 	if(PMEMPOOL)
 		set(ENV{PATH} ${LIBPMEMOBJ_PREFIX}/bin:$ENV{PATH})
 	else()
-		message(FATAL_ERRROR "Pmempool not found.")
+		message(FATAL_ERROR "Pmempool not found.")
 	endif()
 endfunction()
 
-# Function to build test with custom build options (e.g. passing defines)
-# Example: build_test_ext(NAME ... SRC_FILES ....cpp BUILD_OPTIONS -D...)
+# Function to build test with custom build options (e.g. passing defines) and
+# link it with custom library/-ies (supports 'json', 'libpmemobj_cpp' and
+# 'dl_libs'). It calls build_test function.
+# Usage: build_test_ext(NAME .. SRC_FILES .. .. LIBS .. .. BUILD_OPTIONS .. ..)
 function(build_test_ext)
 	set(oneValueArgs NAME)
-	set(multiValueArgs SRC_FILES BUILD_OPTIONS)
+	set(multiValueArgs SRC_FILES LIBS BUILD_OPTIONS)
 	cmake_parse_arguments(TEST "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+	set(LIBS_TO_LINK "")
+
+	foreach(lib ${TEST_LIBS})
+		if("${lib}" STREQUAL "json")
+			if(NOT BUILD_JSON_CONFIG)
+				return()
+			else()
+				list(APPEND LIBS_TO_LINK pmemkv_json_config)
+				list(APPEND TEST_BUILD_OPTIONS -DJSON_TESTS_SUPPORT)
+			endif()
+		elseif("${lib}" STREQUAL "libpmemobj_cpp")
+			if("${LIBPMEMOBJ++_LIBRARIES}" STREQUAL "")
+				return()
+			else()
+				list(APPEND LIBS_TO_LINK ${LIBPMEMOBJ++_LIBRARIES})
+			endif()
+		elseif("${lib}" STREQUAL "dl_libs")
+			list(APPEND LIBS_TO_LINK ${CMAKE_DL_LIBS})
+		endif()
+	endforeach()
 
 	build_test(${TEST_NAME} ${TEST_SRC_FILES})
+	target_link_libraries(${TEST_NAME} ${LIBS_TO_LINK})
 	target_compile_definitions(${TEST_NAME} PRIVATE ${TEST_BUILD_OPTIONS})
 endfunction()
 
 function(build_test name)
 	# skip posix tests
+	# XXX: a WIN32 test will break if used with build_test_ext() func.
 	if(${name} MATCHES "posix$" AND WIN32)
 		return()
 	endif()
@@ -96,7 +122,7 @@ function(build_test name)
 	prepend(srcs ${CMAKE_CURRENT_SOURCE_DIR} ${srcs})
 
 	add_executable(${name} ${srcs})
-	target_link_libraries(${name} ${LIBPMEMOBJ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} pmemkv pmemkv_json_config test_backtrace)
+	target_link_libraries(${name} ${LIBPMEMOBJ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} pmemkv test_backtrace)
 	if(LIBUNWIND_FOUND)
 		target_link_libraries(${name} ${LIBUNWIND_LIBRARIES} ${CMAKE_DL_LIBS})
 	endif()
@@ -107,9 +133,8 @@ function(build_test name)
 	add_dependencies(tests ${name})
 endfunction()
 
-set(vg_tracers memcheck helgrind drd pmemcheck)
-
-# Configures testcase ${name} ${testcase} using tracer ${tracer}, cmake_script is used to run test
+# Configures testcase ${test_name}_${testcase} with ${tracer}
+# and cmake_script used to execute test
 function(add_testcase executable test_name tracer testcase cmake_script)
 	add_test(NAME ${test_name}_${testcase}_${tracer}
 			COMMAND ${CMAKE_COMMAND}
@@ -128,8 +153,9 @@ function(add_testcase executable test_name tracer testcase cmake_script)
 			ENVIRONMENT "LC_ALL=C;PATH=$ENV{PATH};"
 			FAIL_REGULAR_EXPRESSION Sanitizer)
 
+	# XXX: if we use FATAL_ERROR in test.cmake - pmemcheck passes anyway
+	# workaround: look for "CMake Error" in output and fail if found
 	if (${tracer} STREQUAL pmemcheck)
-		# XXX: if we use FATAL_ERROR in test.cmake - pmemcheck passes anyway
 		set_tests_properties(${test_name}_${testcase}_${tracer} PROPERTIES
 				FAIL_REGULAR_EXPRESSION "CMake Error")
 	endif()
@@ -153,7 +179,7 @@ function(skip_test name message)
 	set_tests_properties(${name}_${message} PROPERTIES COST 0)
 endfunction()
 
-# adds testcase only if tracer is found and target is build, skips adding test otherwise
+# adds testcase only if tracer is found and target is build, skips otherwise
 function(add_test_common executable test_name tracer testcase cmake_script)
 	if(${tracer} STREQUAL "")
 	    set(tracer none)
@@ -198,7 +224,7 @@ function(add_test_common executable test_name tracer testcase cmake_script)
 	add_testcase(${executable} ${test_name} ${tracer} ${testcase} ${cmake_script} ${ARGN})
 endfunction()
 
-# adds testscase with optional TRACERS and SCRIPT parameters
+# adds testcase with optional SCRIPT and TEST_CASE parameters
 function(add_test_generic)
 	set(oneValueArgs NAME CASE SCRIPT)
 	set(multiValueArgs TRACERS)
@@ -223,6 +249,7 @@ function(add_test_generic)
 	endforeach()
 endfunction()
 
+# adds testcase with addtional parameters, required by "engine scenario" tests
 function(add_engine_test)
 	set(oneValueArgs BINARY ENGINE SCRIPT DB_SIZE)
 	set(multiValueArgs TRACERS PARAMS)
@@ -245,14 +272,14 @@ function(add_engine_test)
 	endif()
 
 	if(${TEST_ENGINE} STREQUAL "caching")
-		# caching tests require lib_acl and memcached included, so we need to link
-		# them to test binary itself
+		# caching tests require lib_acl and memcached included,
+		# so we need to link them to test binary itself
 		target_link_libraries(${TEST_BINARY} memcached)
 		target_link_libraries(${TEST_BINARY} acl_cpp protocol acl)
 	endif()
 
 	# Use "|PARAM|" as list separator so that CMake does not expand it
-	# when passing to test script
+	# when passing to the test script
 	string(REPLACE ";" "|PARAM|" raw_params "${TEST_PARAMS}")
 
 	foreach(tracer ${TEST_TRACERS})

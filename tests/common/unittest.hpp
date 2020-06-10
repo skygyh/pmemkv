@@ -8,14 +8,18 @@
 
 #include <libpmemkv.h>
 #include <libpmemkv.hpp>
+#ifdef JSON_TESTS_SUPPORT
 #include <libpmemkv_json_config.h>
+#endif
 
+#include <condition_variable>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <type_traits>
@@ -115,18 +119,40 @@ void parallel_exec(size_t threads_number, Function f)
 	}
 }
 
+/*
+ * This function executes 'concurrency' threads and provides
+ * 'syncthreads' method (synchronization barrier) for f()
+ */
+template <typename Function>
+void parallel_xexec(size_t concurrency, Function f)
+{
+	std::condition_variable cv;
+	std::mutex m;
+	size_t counter = 0;
+
+	auto syncthreads = [&] {
+		std::unique_lock<std::mutex> lock(m);
+		counter++;
+		if (counter < concurrency)
+			cv.wait(lock);
+		else
+			/*
+			 * notify_call could be called outside of a lock
+			 * (it would perform better) but drd complains
+			 * in that case
+			 */
+			cv.notify_all();
+	};
+
+	parallel_exec(concurrency, [&](size_t tid) { f(tid, syncthreads); });
+}
+
+#ifdef JSON_TESTS_SUPPORT
 pmem::kv::config CONFIG_FROM_JSON(std::string json)
 {
-	pmemkv_config *cfg = pmemkv_config_new();
-	UT_ASSERTne(cfg, NULL);
-
-	auto s = pmemkv_config_from_json(cfg, json.c_str());
-	if (s != PMEMKV_STATUS_OK) {
-		UT_FATAL(pmemkv_config_from_json_errormsg());
-	}
-
-	return pmem::kv::config(cfg);
+	return pmem::kv::config(C_CONFIG_FROM_JSON(json.c_str()));
 }
+#endif /* JSON_TESTS_SUPPORT */
 
 pmem::kv::db INITIALIZE_KV(std::string engine, pmem::kv::config &&config)
 {
@@ -150,6 +176,7 @@ void CLEAR_KV(pmem::kv::db &kv)
 		kv.remove(k);
 }
 
+#ifdef JSON_TESTS_SUPPORT
 static inline int run_engine_tests(std::string engine, std::string json,
 				   std::vector<std::function<void(pmem::kv::db &)>> tests)
 {
@@ -169,6 +196,12 @@ static inline int run_engine_tests(std::string engine, std::string json,
 	}
 
 	return 0;
+}
+#endif /* JSON_TESTS_SUPPORT */
+
+static inline pmem::kv::string_view uint64_to_strv(uint64_t &key)
+{
+	return pmem::kv::string_view((char *)&key, sizeof(uint64_t));
 }
 
 #endif /* PMEMKV_UNITTEST_HPP */

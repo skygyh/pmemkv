@@ -6,9 +6,15 @@
 #include "unittest.h"
 #include <string.h>
 
-/* Test if null can be passed as db to pmemkv_* functions */
-void check_null_db_test()
+/**
+ * Passing null as 'db' or 'config' in C API produces INVALID_ARGUMENT status
+ */
+
+void null_db_all_funcs_test()
 {
+	/**
+	 * TEST: null passed as db to pmemkv_* functions
+	 */
 	size_t cnt;
 	const char *key1 = "key1";
 	const char *value1 = "value1";
@@ -61,10 +67,27 @@ void check_null_db_test()
 
 void null_config_test(const char *engine)
 {
+	/**
+	 * TEST: null passed as config to pmemkv_open()
+	 */
 	pmemkv_config *empty_cfg = NULL;
 	pmemkv_db *db = NULL;
 	int s = pmemkv_open(engine, empty_cfg, &db);
 	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+}
+
+void null_db_test(const char *engine)
+{
+	/**
+	 * TEST: null passed as db to pmemkv_open()
+	 */
+	pmemkv_config *cfg = pmemkv_config_new();
+	UT_ASSERTne(cfg, NULL);
+
+	int s = pmemkv_open(engine, cfg, NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	/* Config should be deleted by pmemkv */
 }
 
 int main(int argc, char *argv[])
@@ -74,8 +97,9 @@ int main(int argc, char *argv[])
 	if (argc < 2)
 		UT_FATAL("usage %s: engine", argv[0]);
 
-	check_null_db_test();
+	null_db_all_funcs_test();
 	null_config_test(argv[1]);
+	null_db_test(argv[1]);
 
 	return 0;
 }

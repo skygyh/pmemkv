@@ -17,8 +17,8 @@ fi
 PREFIX=/usr
 PACKAGE_TYPE=$1
 
-# v1.9; 31.01.2020
-LIBPMEMOBJ_CPP_VERSION="1.9"
+# common: 1.10 release; 28.05.2020
+LIBPMEMOBJ_CPP_VERSION="1.10"
 
 git clone https://github.com/pmem/libpmemobj-cpp --shallow-since=2019-10-02
 cd libpmemobj-cpp

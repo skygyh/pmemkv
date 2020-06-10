@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2017-2019, Intel Corporation */
+/* Copyright 2017-2020, Intel Corporation */
 
 #include "vsmap.h"
+#include "../comparator/comparator.h"
+#include "../comparator/volatile_comparator.h"
 #include "../out.h"
+
 #include <libpmemobj++/transaction.hpp>
 
 #include <iostream>
@@ -33,7 +36,10 @@ static uint64_t get_size(internal::config &cfg)
 }
 
 vsmap::vsmap(std::unique_ptr<internal::config> cfg)
-    : kv_allocator(get_path(*cfg), get_size(*cfg)), pmem_kv_container(kv_allocator)
+    : kv_allocator(get_path(*cfg), get_size(*cfg)),
+      pmem_kv_container(internal::volatile_compare(internal::extract_comparator(*cfg)),
+			kv_allocator),
+      config(std::move(cfg))
 {
 	LOG("Started ok");
 }
@@ -123,7 +129,7 @@ status vsmap::count_between(string_view key1, string_view key2, std::size_t &cnt
 {
 	LOG("count_between for key1=" << key1.data() << ", key2=" << key2.data());
 	std::size_t result = 0;
-	if (key1.compare(key2) < 0) {
+	if (pmem_kv_container.key_comp()(key1, key2)) {
 		// XXX - do not create temporary string
 		auto it = pmem_kv_container.upper_bound(
 			key_type(key1.data(), key1.size(), kv_allocator));
@@ -228,7 +234,7 @@ status vsmap::get_between(string_view key1, string_view key2, get_kv_callback *c
 			  void *arg)
 {
 	LOG("get_between for key1=" << key1.data() << ", key2=" << key2.data());
-	if (key1.compare(key2) < 0) {
+	if (pmem_kv_container.key_comp()(key1, key2)) {
 		// XXX - do not create temporary string
 		auto it = pmem_kv_container.upper_bound(
 			key_type(key1.data(), key1.size(), kv_allocator));
@@ -274,9 +280,15 @@ status vsmap::put(string_view key, string_view value)
 {
 	LOG("put key=" << std::string(key.data(), key.size())
 		       << ", value.size=" << std::to_string(value.size()));
-	// XXX - do not create temporary string
-	pmem_kv_container[key_type(key.data(), key.size(), kv_allocator)] =
-		mapped_type(value.data(), value.size(), kv_allocator);
+	// XXX - starting from C++17 std::map has try_emplace method which could be more
+	// efficient
+	auto res = pmem_kv_container.emplace(
+		std::piecewise_construct, std::forward_as_tuple(key.data(), key.size()),
+		std::forward_as_tuple(value.data(), value.size()));
+	if (!res.second) {
+		auto it = res.first;
+		it->second.assign(value.data(), value.size());
+	}
 	return status::OK;
 }
 

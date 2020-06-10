@@ -2,6 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright 2018-2020, Intel Corporation
 
+#
+# run-doc-update.sh - is called inside a Docker container,
+#                     build docs and automatically update manpages
+#                     and doxygen files on gh-pages
+#
+
 set -e
 
 source `dirname $0`/valid-branches.sh
@@ -14,7 +20,7 @@ CURR_DIR=$(pwd)
 ORIGIN="https://${GITHUB_TOKEN}@github.com/${BOT_NAME}/${REPO_NAME}"
 UPSTREAM="https://github.com/${USER_NAME}/${REPO_NAME}"
 # master or stable-* branch
-TARGET_BRANCH=${TRAVIS_BRANCH}
+TARGET_BRANCH=${CI_BRANCH}
 VERSION=${TARGET_BRANCHES[$TARGET_BRANCH]}
 
 if [ -z $VERSION ]; then

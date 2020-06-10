@@ -25,9 +25,11 @@ option(BUILD_EXAMPLES "build examples" ON)
 option(BUILD_TESTS "build tests" ON)
 option(BUILD_JSON_CONFIG "build the 'libpmemkv_json_config' library" ON)
 
+option(TESTS_LONG "enable long running tests" OFF)
 option(TESTS_USE_FORCED_PMEM "run tests with PMEM_IS_PMEM_FORCE=1" OFF)
 option(TESTS_USE_VALGRIND "enable tests with valgrind (if found)" ON)
 option(TESTS_PMEMOBJ_DRD_HELGRIND "enable test of pmemobj engines under drd and helgrind (they should only be run on PMEM)")
+option(TESTS_JSON "enable tests which require libpmemkv_json_config library (BUILD_JSON_CONFIG have to be ON)" ON)
 
 option(COVERAGE "run coverage test" OFF)
 if(COVERAGE)
@@ -39,6 +41,7 @@ endif()
 option(ENGINE_CMAP "enable cmap engine" ON)
 option(ENGINE_VCMAP "enable vcmap engine" ON)
 option(ENGINE_VSMAP "enable vsmap engine" ON)
+option(ENGINE_CSMAP "enable experimental csmap engine (requires CXX_STANDARD to be set to value >= 14)" OFF)
 option(ENGINE_CACHING "enable experimental caching engine" OFF)
 option(ENGINE_STREE "enable experimental stree engine" ON)
 option(ENGINE_TREE3 "enable experimental tree3 engine" ON)
@@ -55,6 +58,12 @@ if(ENGINE_CMAP)
 	message(STATUS "CMAP engine is ON")
 else()
 	message(STATUS "CMAP engine is OFF")
+endif()
+if(ENGINE_CSMAP)
+	add_definitions(-DENGINE_CSMAP)
+	message(STATUS "CSMAP engine is ON")
+else()
+	message(STATUS "CSMAP engine is OFF")
 endif()
 if(ENGINE_VCMAP)
 	add_definitions(-DENGINE_VCMAP)
@@ -103,6 +112,12 @@ if(ENGINE_CMAP)
 		src/engines/cmap.cc
 	)
 endif()
+if(ENGINE_CSMAP)
+	list(APPEND SOURCE_FILES
+		src/engines-experimental/csmap.h
+		src/engines-experimental/csmap.cc
+	)
+endif()
 if(ENGINE_VCMAP)
 	list(APPEND SOURCE_FILES
 		src/engines/vcmap.h
@@ -143,7 +158,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD ${CXX_STANDARD})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
-set(LIBPMEMOBJ_CPP_REQUIRED_VERSION 1.9)
+set(LIBPMEMOBJ_CPP_REQUIRED_VERSION 1.10)
 set(LIBPMEMOBJ_REQUIRED_VERSION 1.8)
 set(LIBPMEM_REQUIRED_VERSION 1.7)
 set(MEMKIND_REQUIRED_VERSION 1.8.0)
@@ -177,7 +192,11 @@ set(PKG_CONFIG_REQUIRES)
 set(DEB_DEPENDS)
 set(RPM_DEPENDS)
 
-if(ENGINE_VSMAP OR ENGINE_VCMAP OR ENGINE_CMAP OR ENGINE_STREE OR ENGINE_TREE3)
+if (ENGINE_CSMAP AND CXX_STANDARD LESS 14)
+	message(FATAL_ERROR "CXX_STANDARD must be >= 14 if ENGINE_CSMAP is set")
+endif()
+
+if(ENGINE_VSMAP OR ENGINE_VCMAP OR ENGINE_CMAP OR ENGINE_CSMAP OR ENGINE_STREE OR ENGINE_TREE3)
 	include(libpmemobj++)
 	list(APPEND PKG_CONFIG_REQUIRES "libpmemobj++ >= ${LIBPMEMOBJ_CPP_REQUIRED_VERSION}")
 	list(APPEND RPM_DEPENDS "libpmemobj >= ${LIBPMEMOBJ_REQUIRED_VERSION}")
@@ -236,7 +255,7 @@ if(CHECK_CPP_STYLE)
 			message(FATAL_ERROR "required clang-format version is ${CLANG_FORMAT_REQUIRED} (version ${CLANG_FORMAT_VERSION} is installed)")
 		endif()
 	else()
-		message(WARNING "clang-format not found - C++ sources will not be checked (required version: ${CLANG_FORMAT_REQUIRED})")
+		message(FATAL_ERROR "CHECK_CPP_STYLE=ON, but clang-format not found (required version: ${CLANG_FORMAT_REQUIRED})")
 	endif()
 endif()
 
@@ -265,7 +284,7 @@ set_target_properties(pmemkv PROPERTIES SOVERSION 1)
 target_link_libraries(pmemkv PRIVATE
 	-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/libpmemkv.map)
 
-if(ENGINE_VSMAP OR ENGINE_VCMAP OR ENGINE_CMAP OR ENGINE_STREE OR ENGINE_TREE3)
+if(ENGINE_VSMAP OR ENGINE_VCMAP OR ENGINE_CMAP OR ENGINE_CSMAP OR ENGINE_STREE OR ENGINE_TREE3)
 	target_link_libraries(pmemkv PRIVATE ${LIBPMEMOBJ++_LIBRARIES})
 endif()
 if(ENGINE_VSMAP OR ENGINE_VCMAP)
@@ -279,9 +298,42 @@ if(ENGINE_CACHING)
 	target_link_libraries(pmemkv PRIVATE acl_cpp protocol acl)
 endif()
 
+if(BUILD_JSON_CONFIG)
+	include(rapidjson)
+	add_definitions(-DBUILD_JSON_CONFIG)
+
+	set(SOURCE_FILES_JSON_CONFIG
+		src/libpmemkv_json_config.cc
+		src/libpmemkv_json_config.h
+		src/out.cc
+		src/out.h
+	)
+
+	add_library(pmemkv_json_config SHARED ${SOURCE_FILES_JSON_CONFIG})
+	set_target_properties(pmemkv_json_config  PROPERTIES SOVERSION 1)
+	target_link_libraries(pmemkv_json_config PRIVATE pmemkv ${RapidJSON_LIBRARIES}
+		-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/libpmemkv_json_config.map)
+	set_target_properties(pmemkv_json_config
+		PROPERTIES PUBLIC_HEADER "src/libpmemkv_json_config.h")
+
+	configure_file(libpmemkv_json_config.pc.in libpmemkv_json_config.pc @ONLY)
+
+	install(FILES ${CMAKE_BINARY_DIR}/libpmemkv_json_config.pc
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+	install(TARGETS pmemkv_json_config
+		PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 target_include_directories(pmemkv PRIVATE src/valgrind)
 # Enable libpmemobj-cpp valgrind annotations
 target_compile_options(pmemkv PRIVATE -DLIBPMEMOBJ_CPP_VG_ENABLED=1)
+
+if(BUILD_EXAMPLES)
+	add_subdirectory(examples)
+endif()
 
 set(TEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/test
 	CACHE STRING "working directory for tests")
@@ -328,35 +380,6 @@ install(TARGETS pmemkv
 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-if(BUILD_JSON_CONFIG)
-	include(rapidjson)
-	add_definitions(-DBUILD_JSON_CONFIG)
-
-	set(SOURCE_FILES_JSON_CONFIG
-		src/libpmemkv_json_config.cc
-		src/libpmemkv_json_config.h
-		src/out.cc
-		src/out.h
-	)
-
-	add_library(pmemkv_json_config SHARED ${SOURCE_FILES_JSON_CONFIG})
-	set_target_properties(pmemkv_json_config  PROPERTIES SOVERSION 1)
-	target_link_libraries(pmemkv_json_config PRIVATE pmemkv ${RapidJSON_LIBRARIES}
-		-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/libpmemkv_json_config.map)
-	set_target_properties(pmemkv_json_config
-		PROPERTIES PUBLIC_HEADER "src/libpmemkv_json_config.h")
-
-	configure_file(libpmemkv_json_config.pc.in libpmemkv_json_config.pc @ONLY)
-
-	install(FILES ${CMAKE_BINARY_DIR}/libpmemkv_json_config.pc
-		DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-
-	install(TARGETS pmemkv_json_config
-		PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
-
 configure_file(
 	"${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
@@ -367,6 +390,7 @@ add_custom_target(uninstall
 
 add_cppstyle(src ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/*.h*
+		${CMAKE_CURRENT_SOURCE_DIR}/src/comparator/*.h*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines/*.c*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines/*.h*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines-experimental/*.c*
@@ -375,15 +399,12 @@ add_cppstyle(src ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c*
 
 add_check_whitespace(src ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/*.h*
+		${CMAKE_CURRENT_SOURCE_DIR}/src/comparator/*.h*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines/*.c*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines/*.h*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines-experimental/*.c*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines-experimental/*.h*
 		${CMAKE_CURRENT_SOURCE_DIR}/src/engines-experimental/stree/*.h*)
-
-if(BUILD_EXAMPLES)
-	add_subdirectory(examples)
-endif()
 
 if(NOT "${CPACK_GENERATOR}" STREQUAL "")
 	include(${CMAKE_SOURCE_DIR}/cmake/packages.cmake)

@@ -15,8 +15,7 @@
  * - 1 when path points to non-pmem
  * - 2 when error occurred
  */
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	if (argc != 2) {
 		std::cerr << "usage: " << argv[0] << " filepath\n";
@@ -40,7 +39,10 @@ main(int argc, char *argv[])
 	}
 
 	pmem_unmap(addr, size);
-	remove(path);
+	if (remove(path) != 0) {
+		perror("remove(path) failed");
+		return 2;
+	}
 
 	if (is_pmem)
 		return 0;
