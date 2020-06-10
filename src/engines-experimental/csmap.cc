@@ -303,5 +303,152 @@ void csmap::Recover()
 	}
 }
 
+kv_iterator *csmap::begin()
+{
+	check_outside_tx();
+	LOG("Creating begin kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(container, false);
+	return pit;
+}
+
+kv_iterator *csmap::end()
+{
+	check_outside_tx();
+	LOG("Creating end kv_iterator");
+	kv_iterator *pit = new bidirection_iterator(container, true);
+	return pit;
+}
+
+csmap::bidirection_iterator::bidirection_iterator()
+{
+}
+
+csmap::bidirection_iterator::bidirection_iterator(internal::csmap::map_t * _container,
+	bool seek_end = false)
+	: m_beg(_container->begin()), m_end(_container->end())
+{
+	if (seek_end) {
+		m_cur = _container->end();
+	}
+	else {
+		m_cur = _container->begin();
+	}
+}
+
+csmap::bidirection_iterator::~bidirection_iterator()
+{
+}
+
+// Prefix ++ overload
+kv_iterator &csmap::bidirection_iterator::operator++()
+{
+	if (m_cur == m_end) {
+		m_cur = m_beg;
+	}
+	else {
+		++m_cur;
+	}
+	return *this;
+}
+
+// Postfix ++ overload
+kv_iterator csmap::bidirection_iterator::operator++(int)
+{
+	kv_iterator old = *this;
+	++*this;
+	return old;
+}
+
+// Prefix -- overload
+kv_iterator &csmap::bidirection_iterator::operator--()
+{
+	if (m_cur == m_beg) {
+		m_cur = m_end;
+	} else {
+		--m_cur;
+	}
+	return *this;
+}
+// Postfix -- overload
+kv_iterator csmap::bidirection_iterator::operator--(int)
+{
+	kv_iterator old = *this;
+	--*this;
+	return old;
+}
+
+bool csmap::bidirection_iterator::operator==(const bidirection_iterator &r)
+{
+	return m_cur == r.m_cur;
+}
+
+bool csmap::bidirection_iterator::operator!=(const bidirection_iterator &r)
+{
+	return !(*this == r);
+}
+
+// return key only
+string_view csmap::bidirection_iterator::operator*() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view csmap::bidirection_iterator::key() const
+{
+	return string_view((*m_cur).first.c_str());
+}
+
+string_view csmap::bidirection_iterator::value() const
+{
+	return string_view((*m_cur).second.c_str());
+}
+
+bool csmap::bidirection_iterator::valid()
+{
+	return m_cur != m_end;
+}
+
+void csmap::bidirection_iterator::seek_to_first()
+{
+	m_cur = m_beg;
+}
+
+void csmap::bidirection_iterator::seek_to_last()
+{
+	m_cur = m_end;
+	--m_cur;
+}
+
+void csmap::bidirection_iterator::seek(string_view &key)
+{
+	for (m_cur = m_beg; m_cur != m_end; ++m_cur) {
+		string_view cur_key((*m_cur).first.c_str(), (*m_cur).first.size());
+		if (key.compare(cur_key) == 0) {
+			break;
+		}
+	}
+}
+
+void csmap::bidirection_iterator::seek_for_prev(string_view &key)
+{
+
+	seek(key);
+	if (m_cur == m_beg) {
+		m_cur = m_end;
+		return;
+	}
+	--m_cur;
+}
+
+void csmap::bidirection_iterator::seek_for_next(string_view &key)
+{
+	seek(key);
+	if (m_cur == m_end) {
+		return;
+	}
+	++m_cur;
+}
+
+
 } // namespace kv
 } // namespace pmem
