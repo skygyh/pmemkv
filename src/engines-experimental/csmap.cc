@@ -362,12 +362,7 @@ kv_iterator csmap::bidirection_iterator::operator++(int)
 // Prefix -- overload
 kv_iterator &csmap::bidirection_iterator::operator--()
 {
-	if (m_cur == m_beg) {
-		m_cur = m_end;
-	} else {
-		--m_cur;
-	}
-	return *this;
+	throw std::runtime_error("seek_to_last not supported");
 }
 // Postfix -- overload
 kv_iterator csmap::bidirection_iterator::operator--(int)
@@ -431,13 +426,7 @@ void csmap::bidirection_iterator::seek(string_view &key)
 
 void csmap::bidirection_iterator::seek_for_prev(string_view &key)
 {
-
-	seek(key);
-	if (m_cur == m_beg) {
-		m_cur = m_end;
-		return;
-	}
-	--m_cur;
+	throw std::runtime_error("seek_for_prev not supported");
 }
 
 void csmap::bidirection_iterator::seek_for_next(string_view &key)
