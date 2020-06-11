@@ -323,7 +323,7 @@ csmap::bidirection_iterator::bidirection_iterator()
 {
 }
 
-csmap::bidirection_iterator::bidirection_iterator(internal::csmap::pmem_type::map_type * _container,
+csmap::bidirection_iterator::bidirection_iterator(internal::csmap::map_type * _container,
 	bool seek_end = false)
 	: m_beg(_container->begin()), m_end(_container->end())
 {
