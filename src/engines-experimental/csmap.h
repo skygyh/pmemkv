@@ -118,7 +118,7 @@ public:
 	class bidirection_iterator : public kv_iterator {
 	public:
 		bidirection_iterator();
-		explicit bidirection_iterator(container_type * _container, bool seek_end);
+		explicit bidirection_iterator(internal::csmap::pmem_type::map_type * _container, bool seek_end);
 		~bidirection_iterator();
 		kv_iterator &operator++() override;
 		kv_iterator operator++(int) override;
@@ -137,9 +137,9 @@ public:
 		void seek_for_next(string_view &key) override;
 
 	private:
-		container_type::iterator m_cur;
-		container_type::iterator m_beg;
-		container_type::iterator m_end;
+		internal::csmap::pmem_type::map_type::iterator m_cur;
+		internal::csmap::pmem_type::map_type::iterator m_beg;
+		internal::csmap::pmem_type::map_type::iterator m_end;
 	};	
 
 private:
