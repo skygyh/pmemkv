@@ -324,7 +324,7 @@ csmap::bidirection_iterator::bidirection_iterator()
 }
 
 csmap::bidirection_iterator::bidirection_iterator(internal::csmap::map_type * _container,
-	bool seek_end = false, global_mutex_type iterator_mtx)
+	bool seek_end = false, std::shared_timed_mutex iterator_mtx)
 {
 	mtx = iterator_mtx;
 	shared_global_lock_type lock(mtx);
