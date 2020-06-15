@@ -324,9 +324,11 @@ csmap::bidirection_iterator::bidirection_iterator()
 }
 
 csmap::bidirection_iterator::bidirection_iterator(internal::csmap::map_type * _container,
-	bool seek_end = false)
-	: m_beg(_container->begin()), m_end(_container->end())
+	bool seek_end = false)	
 {
+	shared_global_lock_type lock(mtx);
+    m_beg = _container->begin();
+	m_end = _container->end();
 	if (seek_end) {
 		m_cur = _container->end();
 	}
@@ -385,16 +387,19 @@ bool csmap::bidirection_iterator::operator!=(const bidirection_iterator &r)
 // return key only
 string_view csmap::bidirection_iterator::operator*() const
 {
+	shared_node_lock_type lock(m_cur->first.mtx);
 	return string_view((*m_cur).first.c_str());
 }
 
 string_view csmap::bidirection_iterator::key() const
 {
+    shared_node_lock_type lock(m_cur->first.mtx);
 	return string_view((*m_cur).first.c_str());
 }
 
 string_view csmap::bidirection_iterator::value() const
 {
+    shared_node_lock_type lock(m_cur->second.mtx);	
 	return string_view((*m_cur).second.val.c_str());
 }
 
@@ -415,7 +420,10 @@ void csmap::bidirection_iterator::seek_to_last()
 
 void csmap::bidirection_iterator::seek(string_view &key)
 {
+	shared_global_lock_type lock(mtx);
+
 	for (m_cur = m_beg; m_cur != m_end; ++m_cur) {
+		shared_node_lock_type lock(m_cur->first.mtx);
 		string_view cur_key((*m_cur).first.c_str(), (*m_cur).first.size());
 		if (key.compare(cur_key) == 0) {
 			break;

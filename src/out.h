@@ -8,7 +8,7 @@
 
 std::ostream &out_err_stream(const char *func);
 
-#define DO_LOG 0
+#define DO_LOG 1
 #define LOG(msg)                                                                         \
 	do {                                                                             \
 		if (DO_LOG)                                                              \
