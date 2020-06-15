@@ -324,10 +324,8 @@ csmap::bidirection_iterator::bidirection_iterator()
 }
 
 csmap::bidirection_iterator::bidirection_iterator(internal::csmap::map_type * _container,
-	bool seek_end = false, std::shared_timed_mutex iterator_mtx)
+	bool seek_end, std::shared_timed_mutex& mtx):  m_mtx(mtx)
 {
-	mtx = iterator_mtx;
-	shared_global_lock_type lock(mtx);
     m_beg = _container->begin();
 	m_end = _container->end();
 	if (seek_end) {
@@ -419,8 +417,6 @@ void csmap::bidirection_iterator::seek_to_last()
 
 void csmap::bidirection_iterator::seek(string_view &key)
 {
-	shared_global_lock_type lock(mtx);
-
 	for (m_cur = m_beg; m_cur != m_end; ++m_cur) {
 		string_view cur_key((*m_cur).first.c_str(), (*m_cur).first.size());
 		if (key.compare(cur_key) == 0) {
