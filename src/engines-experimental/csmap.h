@@ -118,7 +118,7 @@ public:
 	class bidirection_iterator : public kv_iterator {
 	public:
 		bidirection_iterator();
-		explicit bidirection_iterator(internal::csmap::map_type * _container, bool seek_end);
+		explicit bidirection_iterator(internal::csmap::map_type * _container, bool seek_end，global_mutex_type mtx);
 		~bidirection_iterator();
 		kv_iterator &operator++() override;
 		kv_iterator operator++(int) override;
@@ -140,6 +140,7 @@ public:
 		internal::csmap::map_type::iterator m_cur;
 		internal::csmap::map_type::iterator m_beg;
 		internal::csmap::map_type::iterator m_end;
+		global_mutex_type mtx;
 	};	
 
 private:
