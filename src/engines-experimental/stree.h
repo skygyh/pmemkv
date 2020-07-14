@@ -51,8 +51,12 @@ public:
 			       void *arg) final;
 	status get_floor_entry(string_view key, get_kv_callback *callback,
 			       void *arg) final;
+	status get_lower_entry(string_view key, get_kv_callback *callback,
+			       void *arg) final;
 	status get_ceiling_entry(string_view key, get_kv_callback *callback,
 				 void *arg) final;
+	status get_higher_entry(string_view key, get_kv_callback *callback,
+				void *arg) final;
 	status get_below(string_view key, get_kv_callback *callback, void *arg) final;
 	status get_between(string_view key1, string_view key2, get_kv_callback *callback,
 			   void *arg) final;

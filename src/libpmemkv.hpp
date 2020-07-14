@@ -273,8 +273,14 @@ public:
 	status get_floor_entry(string_view key, get_kv_callback *callback,
 			       void *arg) noexcept;
 
+	status get_lower_entry(string_view key, get_kv_callback *callback,
+			       void *arg) noexcept;
+
 	status get_ceiling_entry(string_view key, get_kv_callback *callback,
 				 void *arg) noexcept;
+
+	status get_higher_entry(string_view key, get_kv_callback *callback,
+				void *arg) noexcept;
 
 	status get_below(string_view key, get_kv_callback *callback, void *arg) noexcept;
 	status get_below(string_view key, std::function<get_kv_function> f) noexcept;
@@ -1276,6 +1282,30 @@ inline status db::get_floor_entry(string_view key, get_kv_callback *callback,
 
 /**
  * Executes (C-like) callback function for a key-value mapping associated
+ * with the greatest key less than the given key.
+ * Arguments passed to the callback function are: pointer to a key, size of the
+ * key, pointer to a value, size of the value and *arg* specified by the user.
+ * Callback can stop iteration by returning non-zero value. In that case
+ * *get_floor_entry()* returns pmem::kv::status::OK,
+ * or status::NOT_FOUND if no such key.
+ *
+ * Keys are sorted in order specified by a comparator.
+ *
+ * @param[in] key sets the lower bound for querying
+ * @param[in] callback function to be called for the floor element
+ * @param[in] arg additional arguments to be passed to callback
+ *
+ * @return pmem::kv::status
+ */
+inline status db::get_lower_entry(string_view key, get_kv_callback *callback,
+                                  void *arg) noexcept
+{
+	return static_cast<status>(
+		pmemkv_get_lower_entry(this->_db, key.data(), key.size(), callback, arg));
+}
+
+/**
+ * Executes (C-like) callback function for a key-value mapping associated
  * with the least key greater than or equal to the given key.
  * Arguments passed to the callback function are: pointer to a key, size of the
  * key, pointer to a value, size of the value and *arg* specified by the user.
@@ -1296,6 +1326,30 @@ inline status db::get_ceiling_entry(string_view key, get_kv_callback *callback,
 {
 	return static_cast<status>(
 		pmemkv_get_ceiling_entry(this->_db, key.data(), key.size(), callback, arg));
+}
+
+/**
+ * Executes (C-like) callback function for a key-value mapping associated
+ * with the least key greater than the given key.
+ * Arguments passed to the callback function are: pointer to a key, size of the
+ * key, pointer to a value, size of the value and *arg* specified by the user.
+ * Callback can stop iteration by returning non-zero value. In that case
+ * *get_floor_entry()* returns pmem::kv::status::OK,
+ * or status::NOT_FOUND if no such key.
+ *
+ * Keys are sorted in order specified by a comparator.
+ *
+ * @param[in] key sets the lower bound for querying
+ * @param[in] callback function to be called for the ceiling element
+ * @param[in] arg additional arguments to be passed to callback
+ *
+ * @return pmem::kv::status
+ */
+inline status db::get_higher_entry(string_view key, get_kv_callback *callback,
+                                   void *arg) noexcept
+{
+	return static_cast<status>(
+		pmemkv_get_higher_entry(this->_db, key.data(), key.size(), callback, arg));
 }
 
 /**

@@ -42,7 +42,17 @@ static void StreeFloorAndCeilingEntryTest()
             UT_ASSERT(false);
             return 0;
         }, nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_lower_entry("tmpkey",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+        }, nullptr) == status::NOT_FOUND);
     UT_ASSERT(kv.get_ceiling_entry("tmpkey",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+        }, nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_higher_entry("tmpkey",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
             UT_ASSERT(false);
             return 0;
@@ -67,6 +77,12 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<X>,<1>");
+    UT_ASSERT(kv.get_lower_entry("X",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
     result.clear();
     UT_ASSERT(kv.get_ceiling_entry("X",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
@@ -81,9 +97,29 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<X>,<1>");
+    UT_ASSERT(kv.get_higher_entry("X",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
 
     result.clear();
     UT_ASSERT(kv.get_floor_entry("Y",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<X>,<1>");
+    result.clear();
+    UT_ASSERT(kv.get_lower_entry("Y",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
 	    const auto c = ((std::string *)arg);
 	    c->append("<");
@@ -102,6 +138,12 @@ static void StreeFloorAndCeilingEntryTest()
             return 0;
 	},
 	nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_higher_entry("Y",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
 
     UT_ASSERT(kv.get_floor_entry("W",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
@@ -109,8 +151,28 @@ static void StreeFloorAndCeilingEntryTest()
             return 0;
 	},
 	nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_lower_entry("W",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
     result.clear();
     UT_ASSERT(kv.get_ceiling_entry("W",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<X>,<1>");
+    result.clear();
+    UT_ASSERT(kv.get_higher_entry("W",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
 	    const auto c = ((std::string *)arg);
 	    c->append("<");
@@ -141,8 +203,28 @@ static void StreeFloorAndCeilingEntryTest()
             return 0;
 	},
 	nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_lower_entry("W",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
     result.clear();
     UT_ASSERT(kv.get_ceiling_entry("W",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<X>,<1>");
+    result.clear();
+    UT_ASSERT(kv.get_higher_entry("W",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
 	    const auto c = ((std::string *)arg);
 	    c->append("<");
@@ -170,6 +252,12 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<X>,<1>");
+    UT_ASSERT(kv.get_lower_entry("X",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
     result.clear();
     UT_ASSERT(kv.get_ceiling_entry("X",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
@@ -184,6 +272,20 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<X>,<1>");
+    result.clear();
+    UT_ASSERT(kv.get_higher_entry("X",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<Y>,<2>");
 
     result.clear();
     UT_ASSERT(kv.get_floor_entry("XY",
@@ -200,7 +302,35 @@ static void StreeFloorAndCeilingEntryTest()
 	&result) == status::OK);
     UT_ASSERT(result == "<X>,<1>");
     result.clear();
+    UT_ASSERT(kv.get_lower_entry("XY",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<X>,<1>");
+    result.clear();
     UT_ASSERT(kv.get_ceiling_entry("XY",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<Y>,<2>");
+    result.clear();
+    UT_ASSERT(kv.get_higher_entry("XY",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
 	    const auto c = ((std::string *)arg);
 	    c->append("<");
@@ -229,6 +359,20 @@ static void StreeFloorAndCeilingEntryTest()
 	&result) == status::OK);
     UT_ASSERT(result == "<Y>,<2>");
     result.clear();
+    UT_ASSERT(kv.get_lower_entry("Y",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<X>,<1>");
+    result.clear();
     UT_ASSERT(kv.get_ceiling_entry("Y",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
 	    const auto c = ((std::string *)arg);
@@ -242,6 +386,12 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<Y>,<2>");
+    UT_ASSERT(kv.get_higher_entry("Y",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
 
     result.clear();
     UT_ASSERT(kv.get_floor_entry("Z",
@@ -257,7 +407,27 @@ static void StreeFloorAndCeilingEntryTest()
 	},
 	&result) == status::OK);
     UT_ASSERT(result == "<Y>,<2>");
+    result.clear();
+    UT_ASSERT(kv.get_lower_entry("Z",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+	    const auto c = ((std::string *)arg);
+	    c->append("<");
+	    c->append(std::string(k, kb));
+	    c->append(">,<");
+	    c->append(std::string(v, vb));
+	    c->append(">");
+
+	    return 0;
+	},
+	&result) == status::OK);
+    UT_ASSERT(result == "<Y>,<2>");
     UT_ASSERT(kv.get_ceiling_entry("Z",
+        [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
+            UT_ASSERT(false);
+            return 0;
+	},
+	nullptr) == status::NOT_FOUND);
+    UT_ASSERT(kv.get_higher_entry("Z",
         [](const char *k, size_t kb, const char *v, size_t vb, void *arg) {
             UT_ASSERT(false);
             return 0;

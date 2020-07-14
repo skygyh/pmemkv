@@ -113,9 +113,23 @@ status blackhole::get_floor_entry(string_view key, get_kv_callback *callback, vo
 	return status::NOT_FOUND;
 }
 
+status blackhole::get_lower_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_lower_entry for key=" << std::string(key.data(), key.size()));
+
+	return status::NOT_FOUND;
+}
+
 status blackhole::get_ceiling_entry(string_view key, get_kv_callback *callback, void *arg)
 {
 	LOG("get_ceiling_entry for key=" << std::string(key.data(), key.size()));
+
+	return status::NOT_FOUND;
+}
+
+status blackhole::get_higher_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_higher_entry for key=" << std::string(key.data(), key.size()));
 
 	return status::NOT_FOUND;
 }

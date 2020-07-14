@@ -82,8 +82,12 @@ int pmemkv_get_equal_below(pmemkv_db *db, const char *k, size_t kb,
 			   pmemkv_get_kv_callback *c, void *arg);
 int pmemkv_get_floor_entry(pmemkv_db *db, const char *k, size_t kb,
                            pmemkv_get_kv_callback *c, void *arg);
+int pmemkv_get_lower_entry(pmemkv_db *db, const char *k, size_t kb,
+                           pmemkv_get_kv_callback *c, void *arg);
 int pmemkv_get_ceiling_entry(pmemkv_db *db, const char *k, size_t kb,
                              pmemkv_get_kv_callback *c, void *arg);
+int pmemkv_get_higher_entry(pmemkv_db *db, const char *k, size_t kb,
+                            pmemkv_get_kv_callback *c, void *arg);
 int pmemkv_get_below(pmemkv_db *db, const char *k, size_t kb, pmemkv_get_kv_callback *c,
 		     void *arg);
 int pmemkv_get_between(pmemkv_db *db, const char *k1, size_t kb1, const char *k2,

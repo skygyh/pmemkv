@@ -277,6 +277,25 @@ status stree::get_floor_entry(string_view key, get_kv_callback *callback, void *
 	return status::OK;
 }
 
+// the greatest key/value less than the given key,
+// or status::NOT_FOUND if there is no such key
+status stree::get_lower_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_lower_entry key<" << std::string(key.data(), key.size()));
+	check_outside_tx();
+	auto pskey = pstring<internal::stree::MAX_KEY_SIZE>(key.data(), key.size());
+	internal::stree::btree_type::iterator it = my_btree->find_equal_greater(pskey);
+
+        if (it == my_btree->begin()) {
+            return status::NOT_FOUND;
+        }
+
+        --it;
+        callback((*it).first.c_str(), (*it).first.size(),
+                 (*it).second.c_str(), (*it).second.size(), arg);
+	return status::OK;
+}
+
 // the least key/value greater than or equal to the given key,
 // or status::NOT_FOUND if there is no such key.
 status stree::get_ceiling_entry(string_view key, get_kv_callback *callback, void *arg)
@@ -285,6 +304,24 @@ status stree::get_ceiling_entry(string_view key, get_kv_callback *callback, void
 	check_outside_tx();
 	auto pskey = pstring<internal::stree::MAX_KEY_SIZE>(key.data(), key.size());
 	internal::stree::btree_type::iterator it = my_btree->find_equal_greater(pskey);
+
+        if (it == my_btree->end()) {
+            return status::NOT_FOUND;
+        }
+
+        callback((*it).first.c_str(), (*it).first.size(),
+                 (*it).second.c_str(), (*it).second.size(), arg);
+	return status::OK;
+}
+
+// the least key/value greater than the given key,
+// or status::NOT_FOUND if there is no such key.
+status stree::get_higher_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_higher_entry key<" << std::string(key.data(), key.size()));
+	check_outside_tx();
+	auto pskey = pstring<internal::stree::MAX_KEY_SIZE>(key.data(), key.size());
+	internal::stree::btree_type::iterator it = my_btree->upper_bound(pskey);
 
         if (it == my_btree->end()) {
             return status::NOT_FOUND;
