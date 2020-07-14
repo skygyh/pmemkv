@@ -205,6 +205,54 @@ status csmap::get_below(string_view key, get_kv_callback *callback, void *arg)
 	return iterate(first, last, callback, arg);
 }
 
+// the greatest key/value less than or equal to the given key,
+// or status::NOT_FOUND if there is no such key
+status csmap::get_floor_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_floor_entry key<" << std::string(key.data(), key.size()));
+	check_outside_tx();
+	shared_global_lock_type global_lock(mtx);
+	auto it = container->lower_bound(key);
+
+        if (it != container->end() && container->key_comp()(it->first, key) == 0) {
+            shared_node_lock_type node_lock(it->second.mtx);
+            callback((*it).first.c_str(), (*it).first.size(),
+                     (*it).second.val.c_str(), (*it).second.val.size(), arg);
+            return status::OK;
+        }
+
+        if (it == container->begin()) {
+            return status::NOT_FOUND;
+        }
+
+        // FIXME: Current skip_list_iterator not implement decrement operator!
+        // FIXME: Need uncommnet the below line, or get_floor_entry does not work
+        // --it;
+        shared_node_lock_type node_lock(it->second.mtx);
+        callback((*it).first.c_str(), (*it).first.size(),
+                 (*it).second.val.c_str(), (*it).second.val.size(), arg);
+	return status::OK;
+}
+
+// the least key/value greater than or equal to the given key,
+// or status::NOT_FOUND if there is no such key.
+status csmap::get_ceiling_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	LOG("get_floor_entry key<" << std::string(key.data(), key.size()));
+	check_outside_tx();
+	shared_global_lock_type global_lock(mtx);
+	auto it = container->lower_bound(key);
+
+        if (it == container->end()) {
+            return status::NOT_FOUND;
+        }
+
+        shared_node_lock_type node_lock(it->second.mtx);
+        callback((*it).first.c_str(), (*it).first.size(),
+                 (*it).second.val.c_str(), (*it).second.val.size(), arg);
+	return status::OK;
+}
+
 status csmap::get_between(string_view key1, string_view key2, get_kv_callback *callback,
 			  void *arg)
 {

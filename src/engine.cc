@@ -191,6 +191,16 @@ status engine_base::get_equal_below(string_view key, get_kv_callback *callback, 
 	return status::NOT_SUPPORTED;
 }
 
+status engine_base::get_floor_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	return status::NOT_SUPPORTED;
+}
+
+status engine_base::get_ceiling_entry(string_view key, get_kv_callback *callback, void *arg)
+{
+	return status::NOT_SUPPORTED;
+}
+
 status engine_base::get_below(string_view key, get_kv_callback *callback, void *arg)
 {
 	return status::NOT_SUPPORTED;

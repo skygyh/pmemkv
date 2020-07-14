@@ -39,6 +39,8 @@ LIBPMEMKV_1.0 {
 		pmemkv_get_copy;
 		pmemkv_get_equal_above;
 		pmemkv_get_equal_below;
+		pmemkv_get_floor_entry;
+		pmemkv_get_ceiling_entry;
 		pmemkv_open;
 		pmemkv_put;
 		pmemkv_remove;

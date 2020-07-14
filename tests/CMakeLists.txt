@@ -1033,6 +1033,8 @@ endif(ENGINE_TREE3)
 ################################################################################
 ###################################### STREE ###################################
 if(ENGINE_STREE)
+        build_test(stree_floor_ceiling_entry_test engines-experimental/stree_floor_ceiling_test.cc)
+        add_test_generic(NAME stree_floor_ceiling_entry_test TRACERS none memcheck)
 	# XXX - all memcheck and pmemcheck tests are disabled due to failures
 	# Need to investigate
 

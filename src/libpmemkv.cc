@@ -428,6 +428,30 @@ int pmemkv_get_equal_below(pmemkv_db *db, const char *k, size_t kb,
 	});
 }
 
+int pmemkv_get_floor_entry(pmemkv_db *db, const char *k, size_t kb,
+                           pmemkv_get_kv_callback *c, void *arg)
+{
+	if (!db)
+		return PMEMKV_STATUS_INVALID_ARGUMENT;
+
+	return catch_and_return_status(__func__, [&] {
+		return db_to_internal(db)->get_floor_entry(pmem::kv::string_view(k, kb),
+							   c, arg);
+	});
+}
+
+int pmemkv_get_ceiling_entry(pmemkv_db *db, const char *k, size_t kb,
+                             pmemkv_get_kv_callback *c, void *arg)
+{
+	if (!db)
+		return PMEMKV_STATUS_INVALID_ARGUMENT;
+
+	return catch_and_return_status(__func__, [&] {
+		return db_to_internal(db)->get_ceiling_entry(pmem::kv::string_view(k, kb),
+							   c, arg);
+	});
+}
+
 int pmemkv_get_below(pmemkv_db *db, const char *k, size_t kb, pmemkv_get_kv_callback *c,
 		     void *arg)
 {
