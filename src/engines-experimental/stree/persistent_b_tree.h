@@ -310,7 +310,7 @@ public:
 			return end();
 	}
 
-	iterator find_equal_greater(const key_type &key)
+	iterator lower_bound(const key_type &key)
 	{
 		assert(std::is_sorted(begin(), end(),
 				      [](const_reference a, const_reference b) {
@@ -326,7 +326,7 @@ public:
 			return end();
 	}
 
-	const_iterator find_equal_greater(const key_type &key) const
+	const_iterator lower_bound(const key_type &key) const
 	{
 		assert(std::is_sorted(begin(), end(),
 				      [](const_reference a, const_reference b) {
@@ -1448,41 +1448,48 @@ public:
 		return const_iterator(leaf, leaf_it);
 	}
 
-	iterator find_equal_greater(const key_type &key)
+	iterator lower_bound(const key_type &key)
 	{
 		leaf_node_type *leaf = find_leaf_node(key);
 		if (leaf == nullptr)
 			return end();
 
-		typename leaf_node_type::iterator leaf_it = leaf->find_equal_greater(key);
-		if (leaf->end() == leaf_it)
-			return end();
+		typename leaf_node_type::iterator leaf_it = leaf->lower_bound(key);
+		if (leaf->end() == leaf_it) {
+			if (leaf == rightmost_leaf()) {
+				return end();
+			} else {
+				// first key in next leaf node
+				node_persistent_ptr node = leaf->get_next();
+				leaf = cast_leaf(node).get();
+				leaf_it = leaf->begin();
+			}
+		}
 
 		return iterator(leaf, leaf_it);
 	}
 
-	const_iterator find_equal_greater(const key_type &key) const
+	const_iterator lower_bound(const key_type &key) const
 	{
 		const leaf_node_type *leaf = find_leaf_node(key);
 		if (leaf == nullptr)
 			return end();
 
-		typename leaf_node_type::const_iterator leaf_it =
-			leaf->find_equal_greater(key);
-		if (leaf->end() == leaf_it)
-			return end();
+		typename leaf_node_type::const_iterator leaf_it = leaf->lower_bound(key);
+		if (leaf->end() == leaf_it) {
+			if (leaf == rightmost_leaf()) {
+				return end();
+			} else {
+				// first key in next leaf node
+				node_persistent_ptr node = leaf->get_next();
+				leaf = cast_leaf(node).get();
+				leaf_it = leaf->begin();
+			}
+		}
 
 		return const_iterator(leaf, leaf_it);
 	}
 
-	/**
-	 * Returns an iterator pointing to the least element which is larger than the given key.
-	 * Keys are sorted in lexicographical order (see std::lexicographical_compare).
-	 *
-	 * @param[in] key sets the upper bound (exclusive)
-	 *
-	 * @return iterator
-	 */
 	iterator upper_bound(const key_type &key)
 	{
 		leaf_node_type *leaf = find_leaf_node(key);
@@ -1490,20 +1497,20 @@ public:
 			return end();
 
 		typename leaf_node_type::iterator leaf_it = leaf->upper_bound(key);
-		if (leaf->end() == leaf_it)
-			return end();
+		if (leaf->end() == leaf_it) {
+			if (leaf == rightmost_leaf()) {
+				return end();
+			} else {
+				// first key in next leaf node
+				node_persistent_ptr node = leaf->get_next();
+				leaf = cast_leaf(node).get();
+				leaf_it = leaf->begin();
+			}
+		}
 
 		return iterator(leaf, leaf_it);
 	}
 
-	/**
-	 * Returns a const iterator pointing to the least element which is larger than the given key.
-	 * Keys are sorted in lexicographical order (see std::lexicographical_compare).
-	 *
-	 * @param[in] key sets the upper bound (exclusive)
-	 *
-	 * @return const_iterator
-	 */
 	const_iterator upper_bound(const key_type &key) const
 	{
 		const leaf_node_type *leaf = find_leaf_node(key);
@@ -1511,8 +1518,16 @@ public:
 			return end();
 
 		typename leaf_node_type::const_iterator leaf_it = leaf->upper_bound(key);
-		if (leaf->end() == leaf_it)
-			return end();
+		if (leaf->end() == leaf_it) {
+			if (leaf == rightmost_leaf()) {
+				return end();
+			} else {
+				// first key in next leaf node
+				node_persistent_ptr node = leaf->get_next();
+				leaf = cast_leaf(node).get();
+				leaf_it = leaf->begin();
+			}
+		}
 
 		return const_iterator(leaf, leaf_it);
 	}
