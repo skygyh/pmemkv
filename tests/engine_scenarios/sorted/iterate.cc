@@ -73,7 +73,7 @@ static void CommonCountTest(std::string engine, pmem::kv::config &&config)
 	cnt = 1024;
 	UT_ASSERT(kv.count_between(EMPTY_KEY, "A", cnt) == status::OK && cnt == 0);
 	UT_ASSERT(kv.count_between(EMPTY_KEY, "B", cnt) == status::OK && cnt == 3);
-	UT_ASSERT(kv.count_between("A", "B", cnt) == status::OK && cnt == 2);
+	UT_ASSERT(kv.count_between("A", "B", cnt) == status::OK && cnt == 3);
 	UT_ASSERT(kv.count_between("A", "BD", cnt) == status::OK && cnt == 5);
 	UT_ASSERT(kv.count_between("B", "ZZ", cnt) == status::OK && cnt == 3);
 
