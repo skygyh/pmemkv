@@ -34,7 +34,7 @@ option(ENGINE_STREE "enable experimental stree engine" OFF)
 option(ENGINE_TREE3 "enable experimental tree3 engine" OFF)
 
 ## Set required and useful variables
-set(CXX_STANDARD 11 CACHE STRING "C++ language standard")
+set(CXX_STANDARD 14)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD ${CXX_STANDARD})
