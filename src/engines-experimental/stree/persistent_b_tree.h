@@ -993,9 +993,8 @@ public:
 				current_node = tmp;
 				leaf_it = current_node->end();
 			}
-		} else {
-			--leaf_it;
 		}
+		--leaf_it;
 		return *this;
 	}
 
