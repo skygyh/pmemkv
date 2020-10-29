@@ -8,7 +8,7 @@ secondary_title: pmemkv
 ...
 
 [comment]: <> (SPDX-License-Identifier: BSD-3-Clause)
-[comment]: <> (Copyright 2019, Intel Corporation)
+[comment]: <> (Copyright 2019-2020, Intel Corporation)
 
 [comment]: <> (libpmemkv.7 -- man page for libpmemkv)
 
@@ -50,7 +50,9 @@ The most mature and recommended engine to use for persistent use-cases is **cmap
 
 Each engine can be manually turned on and off at build time, using CMake options. All engines listed here are enabled and ready to use.
 
-To configure an engine, pmemkv_config is used (**libpmemkv_config**(3)). Below is a list of engines along with config parameters they expect. Each paramter has a certain type and should be inerted to a config using appropriate function. For example, to insert a parameter of type `string`, `pmemkv_config_put_string` function should be used.
+To configure an engine, pmemkv_config is used (**libpmemkv_config**(3)). Below is a list of engines along with config parameters they expect. Each parameter has corresponding function (pmemkv_config_put_path, pmemkv_config_put_comparator, etc.), which guarantees type safety. For example to insert `path` parameter to the config, user should call pmemkv_config_put_path().
+For some use cases, like creating config from parsed input, it may be more convinient to insert parameters by its type instead of name. Each paramter has a certain type and may be inserted to a config using appropriate function (pmemkv_config_put_string, pmemkv_config_put_int64, etc.). For example, to insert a parameter of type `string`, `pmemkv_config_put_string` function may be used.
+Those two ways of inserting parameters into config may be used interchangeably.
 
 For description of pmemkv core API see **libpmemkv**(3).
 
@@ -60,11 +62,10 @@ A persistent concurrent engine, backed by a hashmap that allows calling get, put
 Data stored using this engine is persistent and guaranteed to be consistent in case of any kind of interruption (crash / power loss / etc).
 
 Internally this engine uses persistent concurrent hashmap and persistent string from libpmemobj-cpp library (for details see <https://github.com/pmem/libpmemobj-cpp>). Persistent string is used as a type of a key and a value. Engine's functions should not be called within libpmemobj transactions (improper call by user will result thrown exception).
-libpmemobj-cpp packages are required.
 
 This engine requires the following config parameters (see **libpmemkv_config**(3) for details how to set them):
 
-* **path** -- Path to a database file or to a poolset file (see **poolset**(5) for details). Not that when using poolset file, size should be 0
+* **path** -- Path to a database file or to a poolset file (see **poolset**(5) for details). Note that when using poolset file, size should be 0
 	+ type: string
 * **force_create** -- If 0, pmemkv opens file specified by 'path', otherwise it creates it.
 	+ type: uint64_t
@@ -84,14 +85,14 @@ The following table shows three possible combinations of parameters (where '-' m
 | **3** | - | - | - | set |
 
 A database file or a poolset file can also be created using **pmempool** utility (see **pmempool-create**(1)).
-When using **pmempool create**, "pmemkv" should be passed as layout. Only PMEMOBJ pools are supported.
+When using **pmempool create**, "pmemkv" should be passed as layout for cmap engine and "pmemkv_\<engine-name\>" for other engines (e.g. "pmemkv_stree" for stree engine). Only PMEMOBJ pools are supported.
 
 ## vcmap
 
 A volatile concurrent engine, backed by memkind. Data written using this engine is lost after database is closed.
 
 This engine is built on top of tbb::concurrent\_hash\_map data structure and uses PMEM C++ allocator to allocate memory. std::basic\_string is used as a type of a key and a value.
-Memkind, TBB and libpmemobj-cpp packages are required.
+Memkind and TBB packages are required.
 
 This engine requires the following config parameters (see **libpmemkv_config**(3) for details how to set them):
 
@@ -106,7 +107,7 @@ This engine requires the following config parameters (see **libpmemkv_config**(3
 A volatile single-threaded sorted engine, backed by memkind. Data written using this engine is lost after database is closed.
 
 This engine is built on top of std::map and uses PMEM C++ allocator to allocate memory. std::basic\_string is used as a type of a key and a value.
-Memkind and libpmemobj-cpp packages are required.
+Memkind package is required.
 
 This engine requires the following config parameters (see **libpmemkv_config**(3) for details how to set them):
 
@@ -129,7 +130,7 @@ No supported configuration parameters.
 ### Experimental engines
 
 There are also more engines in various states of development, for details see <https://github.com/pmem/pmemkv/blob/master/ENGINES-experimental.md>.
-Three of them (tree3, stree and csmap) requires the config parameters like cmap and similarly to cmap should not be used within libpmemobj transaction(s).
+Some of them (radix, tree3, stree and csmap) requires the config parameters like cmap and similarly to cmap should not be used within libpmemobj transaction(s).
 
 # BINDINGS #
 
@@ -138,8 +139,6 @@ Bindings for other languages are available on GitHub. Currently they support onl
 Existing bindings:
 
 + Java - for details see <https://github.com/pmem/pmemkv-java>
-
-+ JNI - for details see <https://github.com/pmem/pmemkv-jni>
 
 + Node.js - for details see <https://github.com/pmem/pmemkv-nodejs>
 

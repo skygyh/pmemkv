@@ -17,7 +17,7 @@ Key/Value Datastore for Persistent Memory
 
 * 64-bit Linux (OSX and Windows are not yet supported)
 * libpmem and libpmemobj, which are part of [PMDK](https://github.com/pmem/pmdk) - Persistent Memory Development Kit 1.8
-* [libpmemobj-cpp](https://github.com/pmem/libpmemobj-cpp) - C++ bindings 1.9 for PMDK (required by all engines except blackhole and caching)
+* [libpmemobj-cpp](https://github.com/pmem/libpmemobj-cpp) - C++ PMDK bindings 1.11
 * [memkind](https://github.com/memkind/memkind) - Volatile memory manager 1.8.0 (required by vsmap & vcmap engines)
 * [TBB](https://github.com/01org/tbb) - Thread Building Blocks (required by vcmap engine)
 * [RapidJSON](https://github.com/tencent/rapidjson) - JSON parser (required by `libpmemkv_json_config` helper library)
@@ -38,7 +38,7 @@ cd pmemkv
 mkdir ./build
 cd ./build
 cmake ..                # run CMake
-make                    # build everything
+make -j$(nproc)         # build everything
 make test               # run all tests
 ```
 
@@ -92,7 +92,7 @@ cd ~
 mkdir mybuild
 cd mybuild
 cmake ~/pmemkv       # this directory should contain the source code of pmemkv
-make
+make -j$(nproc)
 make test            # or 'ctest --output-on-failure'
 ```
 
@@ -120,7 +120,7 @@ Install latest PMDK:
 cd ~
 git clone https://github.com/pmem/pmdk
 cd pmdk
-make -j8
+make -j$(nproc)
 su -c 'make install'
 export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig
 ```
@@ -134,7 +134,7 @@ cd libpmemobj-cpp
 mkdir build
 cd build
 cmake ..
-make
+make -j$(nproc)
 su -c 'make install'
 ```
 
@@ -176,7 +176,7 @@ Install latest PMDK:
 cd ~
 git clone https://github.com/pmem/pmdk
 cd pmdk
-make -j8
+make -j$(nproc)
 sudo make install
 ```
 
@@ -189,7 +189,7 @@ cd libpmemobj-cpp
 mkdir build
 cd build
 cmake ..
-make
+make -j$(nproc)
 sudo make install
 ```
 
@@ -212,51 +212,20 @@ Finally [build and install pmemkv from sources](#building-from-sources).
 To enable experimental engine(s) use adequate CMake parameter, e.g.:
 
 ```sh
-cmake .. -DENGINE_CACHING=ON
+cmake .. -DENGINE_CSMAP=ON
 ```
 
 Now build will contain selected experimental engine(s) and their dependencies, that are not available by default.
 
-Additional libraries (not listed above, in prerequisites section) are required only by caching engine. If you want to use it
-you need to follow these instructions:
-
-First build and install `pmemkv` as described above. Then, install client libraries for Memcached:
-
-```sh
-cd ~
-mkdir work
-cd work
-wget https://launchpad.net/libmemcached/1.0/0.21/+download/libmemcached-0.21.tar.gz
-tar -xvf libmemcached-0.21.tar.gz
-mv libmemcached-0.21 libmemcached
-cd libmemcached
-./configure
-make
-su -c 'make install'
-```
-
-Install client libraries for Redis:
-
-```sh
-cd ~
-mkdir work
-cd work
-git clone https://github.com/acl-dev/acl.git
-mv acl libacl
-cd libacl/lib_acl_cpp
-make
-cd ../lib_acl
-make
-cd ../lib_protocol
-make
-```
+Experimental engines may require additional libraries, see **prerequisites** section of a selected
+engine in [ENGINES-experimental.md](./ENGINES-experimental.md).
 
 ## Building packages
 
 ```sh
 ...
 cmake .. -DCPACK_GENERATOR="$GEN" -DCMAKE_INSTALL_PREFIX=/usr
-make package
+make -j$(nproc) package
 ```
 
 $GEN is a type of package generator and can be RPM or DEB.

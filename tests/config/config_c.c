@@ -4,6 +4,7 @@
 #include "unittest.h"
 #include <libpmemkv.h>
 
+#include <libpmemobj/pool_base.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,6 +15,8 @@
 static const int TEST_VAL = 0xABC;
 static const int INIT_VAL = 1;
 static const int DELETED_VAL = 2;
+static const char *PATH = "/some/path";
+static const uint64_t SIZE = 0xDEADBEEF;
 
 struct custom_type {
 	int a;
@@ -47,7 +50,7 @@ static void xdeleter(struct custom_type_wrapper *ct_ptr)
 static void simple_test()
 {
 	/**
-	 * TEST: add and read data from config, using all available methods
+	 * TEST: add and read data from config, using basic functions
 	 */
 	pmemkv_config *config = pmemkv_config_new();
 	UT_ASSERT(config != NULL);
@@ -72,6 +75,15 @@ static void simple_test()
 	ptr_deleter->b = INIT_VAL;
 	ret = pmemkv_config_put_object(config, "object_ptr_with_deleter", ptr_deleter,
 				       (void (*)(void *)) & deleter);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+
+	ret = pmemkv_config_put_path(config, PATH);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+
+	ret = pmemkv_config_put_size(config, SIZE);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+
+	ret = pmemkv_config_put_force_create(config, true);
 	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
 
 	const char *value_string;
@@ -110,6 +122,19 @@ static void simple_test()
 	UT_ASSERTeq(pmemkv_config_get_int64(config, "non-existent", &none),
 		    PMEMKV_STATUS_NOT_FOUND);
 
+	ret = pmemkv_config_get_string(config, "path", &value_string);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+	UT_ASSERT(strcmp(value_string, PATH) == 0);
+
+	uint64_t value_uint;
+	ret = pmemkv_config_get_uint64(config, "size", &value_uint);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+	UT_ASSERTeq(value_uint, SIZE);
+
+	ret = pmemkv_config_get_uint64(config, "force_create", &value_uint);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+	UT_ASSERTeq(value_uint, 1);
+
 	pmemkv_config_delete(config);
 	config = NULL;
 
@@ -123,6 +148,25 @@ static void simple_test()
 
 	free(ptr);
 	free(ptr_deleter);
+}
+
+static void put_oid_simple_test()
+{
+	/**
+	 * TEST: basic check for put_oid function.
+	 */
+	pmemkv_config *cfg = pmemkv_config_new();
+	UT_ASSERT(cfg != NULL);
+	PMEMoid oid;
+	int ret = pmemkv_config_put_oid(cfg, &oid);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+
+	PMEMoid *oid_ptr;
+	ret = pmemkv_config_get_object(cfg, "oid", (void **)&oid_ptr);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_OK);
+	UT_ASSERTeq(&oid, oid_ptr);
+
+	pmemkv_config_delete(cfg);
 }
 
 static void free_deleter_test()
@@ -350,6 +394,9 @@ static void null_config_test()
 	ret = pmemkv_config_put_int64(NULL, "int", 123);
 	UT_ASSERTeq(ret, PMEMKV_STATUS_INVALID_ARGUMENT);
 
+	ret = pmemkv_config_put_uint64(NULL, "uint", 123456);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_INVALID_ARGUMENT);
+
 	struct custom_type *ptr = malloc(sizeof(struct custom_type));
 	ptr->a = INIT_VAL;
 	ptr->b = INIT_VAL;
@@ -365,6 +412,10 @@ static void null_config_test()
 
 	int64_t value_int;
 	ret = pmemkv_config_get_int64(NULL, "int", &value_int);
+	UT_ASSERTeq(ret, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	uint64_t value_uint;
+	ret = pmemkv_config_get_uint64(NULL, "uint", &value_uint);
 	UT_ASSERTeq(ret, PMEMKV_STATUS_INVALID_ARGUMENT);
 
 	struct custom_type *value_custom_ptr;
@@ -385,6 +436,7 @@ int main(int argc, char *argv[])
 	START();
 
 	simple_test();
+	put_oid_simple_test();
 	free_deleter_test();
 	ex_put_object_test();
 	ex_put_object_nullptr_del_test();

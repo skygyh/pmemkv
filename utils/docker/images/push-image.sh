@@ -12,12 +12,12 @@
 
 set -e
 
-if [[ -z "$OS" ]]; then
+if [[ -z "${OS}" ]]; then
 	echo "OS environment variable is not set"
 	exit 1
 fi
 
-if [[ -z "$OS_VER" ]]; then
+if [[ -z "${OS_VER}" ]]; then
 	echo "OS_VER environment variable is not set"
 	exit 1
 fi
@@ -27,7 +27,7 @@ if [[ -z "${DOCKERHUB_REPO}" ]]; then
 	exit 1
 fi
 
-TAG="1.2-${OS}-${OS_VER}"
+TAG="1.3-${OS}-${OS_VER}"
 
 # Check if the image tagged with ${DOCKERHUB_REPO}:${TAG} exists locally
 if [[ ! $(docker images -a | awk -v pattern="^${DOCKERHUB_REPO}:${TAG}\$" \
@@ -38,7 +38,7 @@ then
 fi
 
 # Log in to the Docker Hub
-docker login -u="$DOCKERHUB_USER" -p="$DOCKERHUB_PASSWORD"
+docker login -u="${DOCKERHUB_USER}" -p="${DOCKERHUB_PASSWORD}"
 
 # Push the image to the repository
 docker push ${DOCKERHUB_REPO}:${TAG}

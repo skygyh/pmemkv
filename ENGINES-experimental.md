@@ -1,9 +1,9 @@
 # Experimental Storage Engines for pmemkv
 
 - [tree3](#tree3)
+- [csmap](#csmap)
+- [radix](#radix)
 - [stree](#stree)
-- [caching](#caching)
-
 
 # tree3
 
@@ -12,7 +12,7 @@ It is disabled by default. It can be enabled in CMake using the `ENGINE_TREE3` o
 
 ### Configuration
 
-Configuration must specify a `path` to a PMDK persistent pool, which can be a file (on a DAX filesystem),
+Configuration must specify a `path` to a PMDK persistent pool (with layout "pmemkv_tree3"), which can be a file (on a DAX filesystem),
 a DAX device, or a PMDK poolset file.
 
 * **path** -- Path to the database file
@@ -41,7 +41,7 @@ a given key. Leaf modifications are accelerated using
 
 ### Prerequisites
 
-Libpmemobj-cpp package is required.
+No additional packages are required.
 
 # csmap
 
@@ -53,13 +53,36 @@ Remove method is currently implemented to take a global lock - it blocks all oth
 
 ### Configuration
 
-* **path** -- Path to the database file
+* **path** -- Path to the database file (layout "pmemkv_csmap")
 	+ type: string
 * **force_create** -- If 0, pmemkv opens the file specified by 'path', otherwise it creates the file
 	+ type: uint64_t
 	+ default value: 0
 * **size** --  Only needed when force_create is not 0, specifies size of the database [in bytes]
 	+ type: uint64_t
+
+### Prerequisites
+
+No additional packages are required.
+
+# radix
+
+A persistent, sorted (without custom comparator support) engine, backed by a radix tree.
+It is disabled by default. It can be enabled in CMake using the `ENGINE_RADIX` option.
+
+### Configuration
+
+* **path** -- Path to the database file (layout "pmemkv_csmap")
+	+ type: string
+* **force_create** -- If 0, pmemkv opens the file specified by 'path', otherwise it creates the file
+	+ type: uint64_t
+	+ default value: 0
+* **size** --  Only needed when force_create is not 0, specifies size of the database [in bytes]
+	+ type: uint64_t
+
+### Prerequisites
+
+No additional packages are required.
 
 # stree
 
@@ -68,7 +91,7 @@ It is disabled by default. It can be enabled in CMake using the `ENGINE_STREE` o
 
 ### Configuration
 
-* **path** -- Path to the database file
+* **path** -- Path to the database file (layout "pmemkv_stree")
 	+ type: string
 * **force_create** -- If 0, pmemkv opens file specified by 'path', otherwise it creates it
 	+ type: uint64_t
@@ -82,49 +105,9 @@ It is disabled by default. It can be enabled in CMake using the `ENGINE_STREE` o
 
 ### Prerequisites
 
-Libpmemobj-cpp package is required.
+No additional packages are required.
 
-
-# caching
-
-This engine is using a sub engine from the list above to cache requests to external Redis or Memcached server.
-It is disabled by default. It can be enabled in CMake using the `ENGINE_CACHING` option.
-
-### Configuration
-
-Caching engine itself requires server connection settings. Part of the config required for the sub engine should be relevant to chosen engine.
-
-* **host** -- Server's IP
-	+ type: string
-* **port** -- Server's port
-	+ type: int64_t
-* **attempts** -- Number of connection attempts
-	+ type: int64_t
-* **ttl** -- Time to live [in seconds]
-	+ type: int64_t
-	+ default value: 0
-* **remote_type** -- Server's type (Redis or Memcached)
-	+ type: string
-* **remote_user** -- Connection's user
-	+ type: string
-* **remote_pwd** -- User's password
-	+ type: string
-* **remote_url** -- Remote (server's) URL
-	+ type: string
-* **subengine** -- Config object for sub engine with its required settings
-	+ type: object
-
-### Internals
-
-(TBD)
-
-### Prerequisites
-
-Memcached and libacl ([see here for installation guide](INSTALLING.md#using-experimental-engines))
-packages are required.
-
-
-### Related Work
+# Related Work
 ---------
 
 **pmse**
@@ -185,3 +168,10 @@ keys and values.
 Use of PMDK C++ bindings by `tree3` was lifted from this example program.
 Many thanks to [@tomaszkapela](https://github.com/tomaszkapela)
 for providing a great example to follow!
+
+# Archived engines
+
+**caching**
+
+It was present in releases <= 1.2
+That engine was using a sub engine (one of other engines) to cache requests to external Redis or Memcached server.

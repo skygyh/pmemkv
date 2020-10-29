@@ -11,7 +11,7 @@
 # - run this script from its location or set the variable 'HOST_WORKDIR' to
 #   where the root of this project is on the host machine,
 # - set variables 'OS' and 'OS_VER' properly to a system you want to build this
-#   repo on (for proper values take a look on the list of Dockerfiles at the
+#   repo on (for proper values take a look at the list of Dockerfiles at the
 #   utils/docker/images directory), eg. OS=ubuntu, OS_VER=19.10.
 #
 
@@ -19,19 +19,15 @@ set -e
 
 source $(dirname $0)/set-ci-vars.sh
 source $(dirname $0)/set-vars.sh
-source $(dirname $0)/valid-branches.sh
+
+doc_variables_error="To build documentation and upload it as a Github pull request, \
+variables 'DOC_UPDATE_BOT_NAME', 'DOC_REPO_OWNER' and 'DOC_UPDATE_GITHUB_TOKEN' have to be provided. \
+For more details please read CONTRIBUTING.md"
 
 if [[ "$CI_EVENT_TYPE" != "cron" && "$CI_BRANCH" != "coverity_scan" \
 	&& "$TYPE" == "coverity" ]]; then
 	echo "INFO: Skip Coverity scan job if build is triggered neither by " \
 		"'cron' nor by a push to 'coverity_scan' branch"
-	exit 0
-fi
-
-if [[ ( "$CI_EVENT_TYPE" == "cron" || "$CI_BRANCH" == "coverity_scan" )\
-	&& "$TYPE" != "coverity" ]]; then
-	echo "INFO: Skip regular jobs if build is triggered either by 'cron'" \
-		" or by a push to 'coverity_scan' branch"
 	exit 0
 fi
 
@@ -47,15 +43,19 @@ if [[ -z "$HOST_WORKDIR" ]]; then
 	exit 1
 fi
 
-imageName=${DOCKERHUB_REPO}:1.2-${OS}-${OS_VER}
+imageName=${DOCKERHUB_REPO}:1.3-${OS}-${OS_VER}
 containerName=pmemkv-${OS}-${OS_VER}
 
 if [[ "$command" == "" ]]; then
 	case $TYPE in
-		normal)
+		debug)
 			builds=(tests_gcc_debug_cpp11
-					tests_gcc_debug_cpp14
-					test_installation)
+					tests_gcc_debug_cpp14)
+			command="./run-build.sh ${builds[@]}";
+			;;
+		release)
+			builds=(tests_clang_release_cpp20
+					test_release_installation)
 			command="./run-build.sh ${builds[@]}";
 			;;
 		valgrind)
@@ -78,6 +78,13 @@ if [[ "$command" == "" ]]; then
 		bindings)
 			command="./run-bindings.sh";
 			;;
+		doc)
+			if [[ -z "${DOC_UPDATE_BOT_NAME}" || -z "${DOC_UPDATE_GITHUB_TOKEN}" || -z "${DOC_REPO_OWNER}" ]]; then
+				echo "${doc_variables_error}"
+				exit 0
+			fi
+			command="./run-doc-update.sh";
+			;;
 		*)
 			echo "ERROR: wrong build TYPE"
 			exit 1
@@ -87,15 +94,9 @@ fi
 
 if [ "$COVERAGE" == "1" ]; then
 	docker_opts="${docker_opts} `bash <(curl -s https://codecov.io/env)`";
-	ci_env=`bash <(curl -s https://codecov.io/env)`
 fi
 
 if [ -n "$DNS_SERVER" ]; then DNS_SETTING=" --dns=$DNS_SERVER "; fi
-
-# Only run doc update on $GITHUB_REPO master or stable branch
-if [[ -z "${CI_BRANCH}" || -z "${TARGET_BRANCHES[${CI_BRANCH}]}" || "$CI_EVENT_TYPE" == "pull_request" || "$CI_REPO_SLUG" != "${GITHUB_REPO}" ]]; then
-	AUTO_DOC_UPDATE=0
-fi
 
 # Check if we are running on a CI (Travis or GitHub Actions)
 [ -n "$GITHUB_ACTIONS" -o -n "$TRAVIS" ] && CI_RUN="YES" || CI_RUN="NO"
@@ -115,13 +116,12 @@ echo Building on ${OS}-${OS_VER}
 docker run --privileged=true --name=$containerName -i $TTY \
 	$DNS_SETTING \
 	${docker_opts} \
-	$ci_env \
 	--env http_proxy=$http_proxy \
 	--env https_proxy=$https_proxy \
+	--env TERM=xterm-256color \
 	--env WORKDIR=$WORKDIR \
 	--env SCRIPTSDIR=$SCRIPTSDIR \
 	--env COVERAGE=$COVERAGE \
-	--env AUTO_DOC_UPDATE=$AUTO_DOC_UPDATE \
 	--env CI_RUN=$CI_RUN \
 	--env TRAVIS=$TRAVIS \
 	--env GITHUB_REPO=$GITHUB_REPO \
@@ -130,13 +130,22 @@ docker run --privileged=true --name=$containerName -i $TTY \
 	--env CI_REPO_SLUG=$CI_REPO_SLUG \
 	--env CI_BRANCH=$CI_BRANCH \
 	--env CI_EVENT_TYPE=$CI_EVENT_TYPE \
-	--env GITHUB_TOKEN=$GITHUB_TOKEN \
+	--env GITHUB_ACTIONS=$GITHUB_ACTIONS \
+	--env GITHUB_HEAD_REF=$GITHUB_HEAD_REF \
+	--env GITHUB_REPO=$GITHUB_REPO \
+	--env GITHUB_REPOSITORY=$GITHUB_REPOSITORY \
+	--env GITHUB_REF=$GITHUB_REF \
+	--env GITHUB_RUN_ID=$GITHUB_RUN_ID \
+	--env GITHUB_SHA=$GITHUB_SHA \
+	--env DOC_UPDATE_GITHUB_TOKEN=$DOC_UPDATE_GITHUB_TOKEN \
+	--env DOC_UPDATE_BOT_NAME=$DOC_UPDATE_BOT_NAME \
+	--env DOC_REPO_OWNER=$DOC_REPO_OWNER \
 	--env COVERITY_SCAN_TOKEN=$COVERITY_SCAN_TOKEN \
 	--env COVERITY_SCAN_NOTIFICATION_EMAIL=$COVERITY_SCAN_NOTIFICATION_EMAIL \
 	--env TEST_PACKAGES=${TEST_PACKAGES:-ON} \
 	--env TESTS_LONG=${TESTS_LONG:-OFF} \
 	--env BUILD_JSON_CONFIG=${BUILD_JSON_CONFIG:-ON} \
-	--env CHECK_CPP_STYLE=${CHECK_CPP_STYLE:-ON} \
+	--env CHECK_CPP_STYLE=${CHECK_CPP_STYLE:-OFF} \
 	--env DEFAULT_TEST_DIR=/dev/shm \
 	--shm-size=4G \
 	-v $HOST_WORKDIR:$WORKDIR \

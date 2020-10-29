@@ -10,20 +10,17 @@
 
 set -e
 
-# master: Merge pull request #624 from igchor/catch_std_exception, 17.03.2020
-PMEMKV_VERSION="a2a70b994d57dd3fa9edbf0c7c9bbebb01dc2f5f"
+# master: Merge pull request #737 from lukaszstolarczuk/fix-CI-p..., 07.08.2020
+PMEMKV_VERSION="88cd43e7e3e6b62f67e73a48650e27e0fb90d7ea"
 
-# master: Merge pull request #44 from lukaszstolarczuk/update-tra..., 21.11.2019
+# master: Merge pull request #44 from lukaszstolarczuk/update-tr..., 21.11.2019
 RUBY_VERSION="3741e3df698245fc8a15822a1aa85b5c211fd332"
 
-# master: Merge pull request #34 from igchor/add_pmemkv_errormsg, 06.12.2020
-JNI_VERSION="fcc8370b230ab3236d062a121e22dcebf37b90ec"
+# master: Merge pull request #90 from lukaszstolarczuk/merge-sta..., 09.09.2020
+JAVA_VERSION="e04ca43b5e5590c653cbdec35a87e0279a4f1a7a"
 
-# master: Merge pull request #38 from lukaszstolarczuk/update-tra..., 17.03.2020
-JAVA_VERSION="ab8747c3baf4af8cd2ce1985986d7fcc241ccd65"
-
-# master: Merge pull request #49 from how759/buffer-arguments, 02.03.2020
-NODEJS_VERSION="12ecc0a9c3205425bf0aa1767eada53834535045"
+# master: Merge pull request #55 from lukaszstolarczuk/fix-comment, 03.04.2020
+NODEJS_VERSION="76600e002b9d9105d3f46b7cc2bf991931286cec"
 
 PREFIX=/usr
 rm -rf /opt/bindings
@@ -31,19 +28,20 @@ rm -rf /opt/bindings
 WORKDIR=$(pwd)
 
 #
-# 1) Build and install PMEMKV - Java will need it
+# Build and install PMEMKV - Java will need it
 #
 git clone https://github.com/pmem/pmemkv.git
 cd pmemkv
 git checkout $PMEMKV_VERSION
 mkdir build
 cd build
-# only VSMAP engine is enabled, because Java tests need it
-
+# Pmemkv at this point is needed only to be linked with jni. As tests are skipped,
+# engines are not needed.
 cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DCMAKE_INSTALL_PREFIX=$PREFIX \
-	-DENGINE_VSMAP=ON \
+	-DENGINE_VSMAP=OFF \
 	-DENGINE_CMAP=OFF \
+	-DENGINE_CSMAP=OFF \
 	-DENGINE_VCMAP=OFF \
 	-DENGINE_CACHING=OFF \
 	-DENGINE_STREE=OFF \
@@ -53,7 +51,7 @@ make -j$(nproc)
 make -j$(nproc) install
 
 #
-# 2) RUBY dependencies - all of the dependencies (gems) needed to run
+# RUBY dependencies - all of the dependencies (gems) needed to run
 #                        pmemkv-ruby will be saved
 #                        in the /opt/bindings/ruby directory
 cd $WORKDIR
@@ -68,17 +66,7 @@ bundle package
 mv -v vendor/cache/* /opt/bindings/ruby/
 
 #
-# 3) Build and install JNI
-#
-cd $WORKDIR
-git clone https://github.com/pmem/pmemkv-jni.git
-cd pmemkv-jni
-git checkout $JNI_VERSION
-make test
-make install prefix=$PREFIX
-
-#
-# 4) JAVA dependencies - all of the dependencies needed to run
+# JAVA dependencies - all of the dependencies needed to run
 #                        pmemkv-java will be saved
 #                        in the /opt/bindings/java directory
 cd $WORKDIR
@@ -87,12 +75,13 @@ mkdir -p /opt/bindings/java/
 git clone https://github.com/pmem/pmemkv-java.git
 cd pmemkv-java
 git checkout $JAVA_VERSION
+mvn install -Dmaven.test.skip=true
 mvn dependency:go-offline
-mvn install
+rm -r ~/.m2/repository/io/pmem
 mv -v ~/.m2/repository /opt/bindings/java/
 
 #
-# 5) NodeJS dependencies - all of the dependencies needed to run
+# NodeJS dependencies - all of the dependencies needed to run
 #                          pmemkv-nodejs will be saved
 #                          in the /opt/bindings/nodejs/ directory
 cd $WORKDIR
@@ -109,14 +98,11 @@ cp -rv ./node_modules /opt/bindings/nodejs/
 cd $WORKDIR/pmemkv/build
 make uninstall
 
-cd $WORKDIR/pmemkv-jni
-make uninstall
-
 cd $WORKDIR/pmemkv-nodejs
 npm uninstall
 
 cd $WORKDIR
-rm -r pmemkv pmemkv-ruby pmemkv-jni pmemkv-java pmemkv-nodejs
+rm -r pmemkv pmemkv-ruby pmemkv-java pmemkv-nodejs
 
 
 # make the /opt/bindings directory world-readable

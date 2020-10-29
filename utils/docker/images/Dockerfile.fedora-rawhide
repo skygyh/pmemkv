@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2016-2019, Intel Corporation
+# Copyright 2016-2020, Intel Corporation
 
 #
 # Dockerfile - a 'recipe' for Docker to build an image of Fedora-based
@@ -21,12 +21,15 @@ ARG SKIP_VALGRIND_BUILD
 ARG SKIP_PMDK_BUILD
 ARG SKIP_LIBPMEMOBJCPP_BUILD
 
+ARG LIBPMEMOBJ_CPP_DEPS="\
+	libatomic"
+
 # Install basic tools
 RUN dnf update -y \
  && dnf install -y \
 	autoconf \
 	automake \
-	clang9.0-devel \
+	clang \
 	cmake \
 	daxctl-devel \
 	doxygen \
@@ -35,7 +38,7 @@ RUN dnf update -y \
 	gdb \
 	git \
 	graphviz \
-	hub \
+	gzip \
 	libtool \
 	libunwind-devel \
 	make \
@@ -53,6 +56,7 @@ RUN dnf update -y \
 	unzip \
 	wget \
 	which \
+	$LIBPMEMOBJ_CPP_DEPS \
 && dnf clean all
 
 # Install glibc-debuginfo
@@ -62,13 +66,14 @@ RUN dnf debuginfo-install -y glibc
 COPY install-valgrind.sh install-valgrind.sh
 RUN ./install-valgrind.sh
 
-# Install pmdk
+# Install pmdk from sources, because of:
+# https://github.com/pmem/pmdk/issues/4938
 COPY install-pmdk.sh install-pmdk.sh
-RUN ./install-pmdk.sh rpm
+RUN ./install-pmdk.sh
 
-# Install pmdk c++ bindings
+# Install pmdk c++ bindings (also from sources)
 COPY install-libpmemobj-cpp.sh install-libpmemobj-cpp.sh
-RUN ./install-libpmemobj-cpp.sh RPM
+RUN ./install-libpmemobj-cpp.sh
 
 # Add user
 ENV USER user

@@ -22,6 +22,7 @@ Up-to-date support/maintenance status of branches/releases is available on [pmem
 The C++ API of pmemkv is documented in the Doxygen documentation listed below:
 
 - [master](https://pmem.io/pmemkv/master/doxygen/index.html)
+- [v1.2](https://pmem.io/pmemkv/v1.2/doxygen/index.html)
 - [v1.1](https://pmem.io/pmemkv/v1.1/doxygen/index.html)
 - [v1.0](https://pmem.io/pmemkv/v1.0/doxygen/index.html)
 
@@ -63,7 +64,6 @@ Abovementioned bindings are maintained in separate GitHub repositories, but are 
 in sync with the main `pmemkv` distribution.
 
 * Java - https://github.com/pmem/pmemkv-java
-	* \+ Java Native Interface - https://github.com/pmem/pmemkv-jni
 * Node.js - https://github.com/pmem/pmemkv-nodejs
 * Python - https://github.com/pmem/pmemkv-python
 * Ruby - https://github.com/pmem/pmemkv-ruby
@@ -79,10 +79,10 @@ all language bindings and utilities. Engines are loaded by name at runtime.
 | [cmap](doc/libpmemkv.7.md#cmap) | Concurrent hash map | No | Yes | No |
 | [vsmap](doc/libpmemkv.7.md#vsmap) | Volatile sorted hash map | No | No | Yes |
 | [vcmap](doc/libpmemkv.7.md#vcmap) | Volatile concurrent hash map | No | Yes | No |
-| [csmap](ENGINES-experimental.md#csmap) | Concurrent map | Yes | Yes | Yes |
+| [csmap](ENGINES-experimental.md#csmap) | Concurrent sorted map | Yes | Yes | Yes |
+| [radix](ENGINES-experimental.md#radix) | Radix tree | Yes | No | Yes |
 | [tree3](ENGINES-experimental.md#tree3) | Persistent B+ tree | Yes | No | No |
 | [stree](ENGINES-experimental.md#stree) | Sorted persistent B+ tree | Yes | No | Yes |
-| [caching](ENGINES-experimental.md#caching) | Caching for remote Memcached or Redis server | Yes | No | - |
 
 The production quality engines are described in the [libpmemkv(7)](doc/libpmemkv.7.md#engines) manual
 and the experimental engines are described in the [ENGINES-experimental.md](ENGINES-experimental.md) file.

@@ -26,9 +26,11 @@ RUN dnf install -y epel-release
 RUN dnf install -y 'dnf-command(config-manager)'
 RUN dnf config-manager --set-enabled PowerTools
 
+ARG LIBPMEMOBJ_CPP_DEPS="\
+	libatomic"
+
 # Install basic tools
-RUN dnf update -y \
- && dnf install -y \
+RUN dnf install -y \
 	autoconf \
 	automake \
 	clang \
@@ -40,6 +42,8 @@ RUN dnf update -y \
 	gdb \
 	git \
 	graphviz \
+	gzip \
+	libunwind-devel \
 	libtool \
 	make \
 	man \
@@ -49,12 +53,13 @@ RUN dnf update -y \
 	passwd \
 	perl-Text-Diff \
 	python36 \
+	rapidjson-devel \
 	rpm-build \
 	sudo \
 	tbb-devel \
-	unzip \
 	wget \
 	which \
+	$LIBPMEMOBJ_CPP_DEPS \
 && dnf clean all
 
 # Install glibc-debuginfo
@@ -74,7 +79,7 @@ RUN ./install-libpmemobj-cpp.sh RPM
 
 # Install memkind
 COPY install-memkind.sh install-memkind.sh
-RUN ./install-memkind.sh centos
+RUN ./install-memkind.sh
 
 # Add user
 ENV USER user

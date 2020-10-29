@@ -81,6 +81,24 @@ to use your real name (not an alias) when committing your changes to PMEMKV:
 Author: Random J Developer <random@developer.example.org>
 ```
 
+# Configuring Github fork
+
+To build and submit documentation as an automatically generated pull request,
+the repository has to be properly configured.
+
+* [Personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) for Github account has to be generated.
+  * Such personal access token has to be set in pmemkv repository's
+  [secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets)
+  as `DOC_UPDATE_GITHUB_TOKEN` variable.
+
+* `DOC_UPDATE_BOT_NAME` secret variable has to be set. In most cases it will be
+  the same as Github account name.
+
+* `DOC_REPO_OWNER` secret variable has to be set. Name of the Github account,
+  which will be target to make an automatic pull request with documentation.
+  In most cases it will be the same as Github account name.
+
+
 # Creating New Engines
 
 There are several motivations to create a `pmemkv` storage engine:
@@ -152,6 +170,7 @@ Next we'll walk you through the steps of creating a new engine.
 * In `src/engine.cc`:
     * Add `#include "engines/mytree.h"` (within `#ifdef ENGINE_MYTREE` clause)
     * Update `create_engine` to return new `my_tree` instances
+* In script(s) executed in CIs (at least in `utils/docker/run-test-building.sh`) add a check/build for new engine
 * Build & verify engine now works with high-level bindings (see [README](README.md#language-bindings) for information on current bindings)
 
 ### Documentation
