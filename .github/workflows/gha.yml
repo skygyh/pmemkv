@@ -1,54 +1,67 @@
-#
-# The 'XXX_DISABLE_' suffix is used twice in this file to disable two actions:
-# 1) XXX_DISABLE_${CI_FILE_PUSH_IMAGE_TO_REPO} - disables pushing the rebuilt Docker image,
-# 2) XXX_DISABLE_AUTO_DOC_UPDATE - disables making pull requests with the update of documentation,
-# 3) XXX_COVERAGE - disables uploads of coverage reports.
-# Those two actions are disabled, because they conflict with the same ones run on Travis.
-# Only one CI (Travis or GitHub Actions) can run them at the time, so they can be enabled here,
-# when we decide to switch from Travis to GitHub Actions. The 'XXX_DISABLE_' suffix should be removed then.
-#
 
 name: pmemkv
 on: [push, pull_request]
 
 env:
-    REPO:           pmemkv
-    GITHUB_REPO:    pmem/pmemkv
-    DOCKERHUB_REPO: pmem/pmemkv
+  REPO:           pmemkv
+  GITHUB_REPO:    pmem/pmemkv
+  CONTAINER_REG:  ghcr.io/pmem/pmemkv
+  HOST_WORKDIR:   ${{ github.workspace }}
+  WORKDIR:        utils/docker
+  TEST_TIMEOUT:   600
+  IMG_VER:        latest
 
 jobs:
   linux:
     name: pmemkv
     runs-on: ubuntu-latest
     env:
-      DOCKERHUB_USER:          ${{ secrets.DOCKERHUB_USER }}
-      DOCKERHUB_PASSWORD:      ${{ secrets.DOCKERHUB_PASSWORD }}
-      HOST_WORKDIR:   /home/runner/work/pmemkv/pmemkv
-      WORKDIR:        utils/docker
+      # use org's Private Access Token to log in to GitHub Container Registry
+      CONTAINER_REG_USER:   ${{ secrets.GH_CR_USER }}
+      CONTAINER_REG_PASS:   ${{ secrets.GH_CR_PAT }}
+      FORCE_IMAGE_ACTION:   ${{ secrets.FORCE_IMAGE_ACTION }}
     strategy:
       matrix:
-        CONFIG: ["TYPE=debug OS=fedora OS_VER=31",
-                 "TYPE=debug OS=ubuntu OS_VER=19.10 XXX_COVERAGE=1",
-                 "TYPE=release OS=fedora OS_VER=31",
-                 "TYPE=release OS=ubuntu OS_VER=19.10",
-                 "TYPE=valgrind OS=ubuntu OS_VER=19.10",
-                 "TYPE=memcheck_drd OS=ubuntu OS_VER=19.10",
-                 "TYPE=building OS=fedora OS_VER=31 PUSH_IMAGE=1 XXX_DISABLE_AUTO_DOC_UPDATE=1",
-                 "TYPE=building OS=ubuntu OS_VER=19.10 PUSH_IMAGE=1 XXX_COVERAGE=1",
-                 "TYPE=compatibility OS=fedora OS_VER=31",
-                 "TYPE=bindings OS=ubuntu OS_VER=19.10_bindings PUSH_IMAGE=1",
-                 "TYPE=coverity OS=ubuntu OS_VER=19.10"]
+        CONFIG: ["TYPE=debug OS=fedora OS_VER=32",
+                 "TYPE=debug OS=ubuntu OS_VER=20.10",
+                 "TYPE=debug OS=ubuntu OS_VER=20.04 CHECK_CPP_STYLE=1 COVERAGE=1",
+                 "TYPE=release OS=fedora OS_VER=32",
+                 "TYPE=release OS=ubuntu OS_VER=20.04 PUSH_IMAGE=1",
+                 "TYPE=valgrind OS=ubuntu OS_VER=20.04",
+                 "TYPE=memcheck_drd OS=ubuntu OS_VER=20.04",
+                 "TYPE=building OS=fedora OS_VER=32 PUSH_IMAGE=1",
+                 "TYPE=building OS=ubuntu OS_VER=20.10 PUSH_IMAGE=1 COVERAGE=1 ",
+                 "TYPE=compatibility OS=fedora OS_VER=32",
+                 "TYPE=bindings OS=ubuntu OS_VER=20.04_bindings PUSH_IMAGE=1"]
     steps:
-       - name: Clone the git repo
-         uses: actions/checkout@v2
-         with:
-            fetch-depth: 50
+      - name: Clone the git repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
-       - name: Pull or rebuild the image
-         run: cd $WORKDIR && ${{ matrix.CONFIG }} ./pull-or-rebuild-image.sh
+      # "pull" or "rebuild" can be passed to a secret FORCE_IMAGE_ACTION to override default action
+      - name: Pull the image or rebuild and push it
+        run: cd $WORKDIR && ${{ matrix.CONFIG }} ./pull-or-rebuild-image.sh $FORCE_IMAGE_ACTION
 
-       - name: Run the build
-         run: cd $WORKDIR && ${{ matrix.CONFIG }} ./build.sh
+      - name: Run the build
+        run: cd $WORKDIR && ${{ matrix.CONFIG }} ./build.sh
 
-       - name: Push the image
-         run: cd $WORKDIR && source ./set-vars.sh && ${{ matrix.CONFIG }} /bin/bash -c "if [[ -f XXX_DISABLE_${CI_FILE_PUSH_IMAGE_TO_REPO} ]]; then images/push-image.sh $OS-$OS_VER; fi"
+  doc:
+    name: build and publish docs
+    runs-on: ubuntu-latest
+    needs: linux
+    env:
+      DOC_UPDATE_GITHUB_TOKEN:  ${{ secrets.DOC_UPDATE_GITHUB_TOKEN }}
+      DOC_UPDATE_BOT_NAME:      ${{ secrets.DOC_UPDATE_BOT_NAME }}
+      DOC_REPO_OWNER:           ${{ secrets.DOC_REPO_OWNER }}
+    if:
+      github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/stable-')
+    strategy:
+      matrix:
+        CONFIG: ["TYPE=doc OS=fedora OS_VER=32"]
+    steps:
+      - name: Clone the git repo
+        uses: actions/checkout@v2
+
+      - name: Run the build
+        run: cd $WORKDIR && ${{ matrix.CONFIG }} ./build.sh

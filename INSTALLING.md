@@ -1,45 +1,51 @@
 # Installing pmemkv
 
-Key/Value Datastore for Persistent Memory
+Installation of Key-Value Datastore for Persistent Memory
 
 ## Contents
 
-- [Building from Sources](#building-from-sources)
-- [Installing on Fedora](#installing-on-fedora)
-- [Installing on Ubuntu](#installing-on-ubuntu)
-- [Using Experimental Engines](#using-experimental-engines)
-- [Building packages](#building-packages)
-- [Using a Pool Set](#using-a-pool-set)
+1. [Building from Sources](#building-from-sources)
+	- [Prerequisites](#prerequisites)
+	- [Building pmemkv and running tests](#building-pmemkv-and-running-tests)
+	- [Managing shared library](#managing-shared-library)
+	- [Out-of-source builds](#out-of-source-builds)
+2. [Installing on Fedora](#installing-on-fedora)
+3. [Installing on Ubuntu](#installing-on-ubuntu)
+4. [Using Experimental Engines](#using-experimental-engines)
+5. [Building packages](#building-packages)
+6. [Using a Pool Set](#using-a-pool-set)
 
 ## Building from Sources
 
-**Prerequisites**
+### Prerequisites
 
-* 64-bit Linux (OSX and Windows are not yet supported)
-* libpmem and libpmemobj, which are part of [PMDK](https://github.com/pmem/pmdk) - Persistent Memory Development Kit 1.8
-* [libpmemobj-cpp](https://github.com/pmem/libpmemobj-cpp) - C++ bindings 1.10 for PMDK (required by all engines except blackhole and caching)
-* [memkind](https://github.com/memkind/memkind) - Volatile memory manager 1.8.0 (required by vsmap & vcmap engines)
-* [TBB](https://github.com/01org/tbb) - Thread Building Blocks (required by vcmap engine)
-* [RapidJSON](https://github.com/tencent/rapidjson) - JSON parser (required by `libpmemkv_json_config` helper library)
-* Used only for development & testing:
-	* [valgrind](https://github.com/pmem/valgrind) - tool for profiling and memory leak detection. *pmem* forked version with *pmemcheck*
+* **Linux 64-bit** (OSX and Windows are not yet supported)
+* **libpmem** and **libpmemobj**, which are part of [PMDK](https://github.com/pmem/pmdk) - Persistent Memory Development Kit 1.9.1
+* [**libpmemobj-cpp**](https://github.com/pmem/libpmemobj-cpp) - C++ PMDK bindings 1.12
+* [**memkind**](https://github.com/memkind/memkind) - Volatile memory manager 1.8.0 (required by vsmap & vcmap engines)
+* [**TBB**](https://github.com/01org/tbb) - Thread Building Blocks (required by vcmap engine)
+* [**RapidJSON**](https://github.com/tencent/rapidjson) - JSON parser 1.0.0 (required by `libpmemkv_json_config` helper library)
+* Used only for **testing**:
+	* [**pmempool**](https://github.com/pmem/pmdk/tree/master/src/tools/pmempool) - pmempool utility, part of PMDK
+	* [**valgrind**](https://github.com/pmem/valgrind) - tool for profiling and memory leak detection. *pmem* forked version with *pmemcheck*
 		tool is recommended, but upstream/original [valgrind](https://valgrind.org/) is also compatible (package valgrind-devel is required).
-	* [pandoc](https://pandoc.org/) - markup converter to generate manpages
-	* [doxygen](http://www.doxygen.nl/) - tool for generating documentation from annotated C++ sources
-	* [graphviz](https://www.graphviz.org/) - graph visualization software required by _doxygen_
-	* [perl](https://www.perl.org/) - for whitespace checker script
-	* [clang format](https://clang.llvm.org/docs/ClangFormat.html) - to format and check coding style, version 9.0 is required
+* Used only for **development**:
+	* [**pandoc**](https://pandoc.org/) - markup converter to generate manpages
+	* [**doxygen**](http://www.doxygen.nl/) - tool for generating documentation from annotated C++ sources
+	* [**graphviz**](https://www.graphviz.org/) - graph visualization software required by _doxygen_
+	* [**perl**](https://www.perl.org/) - for whitespace checker script
+	* [**clang format**](https://clang.llvm.org/docs/ClangFormat.html) - to format and check coding style, version 9.0 is required
 
-**Building pmemkv and running tests**
+### Building pmemkv and running tests
 
 ```sh
 git clone https://github.com/pmem/pmemkv
 cd pmemkv
 mkdir ./build
 cd ./build
-cmake ..                # run CMake
-make -j$(nproc)         # build everything
-make test               # run all tests
+cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug		# run CMake, prepare Debug version
+make -j$(nproc)					# build everything
+make test						# run all tests
 ```
 
 Instead of the last command (`make test`) you can run
@@ -64,25 +70,26 @@ instead of:
 cmake ..
 ```
 
-**Managing shared library**
+### Managing shared library
 
 To package `pmemkv` as a shared library and install on your system:
 
 ```sh
-sudo make install		# install shared library to the default location: /usr/local
-sudo make uninstall		# remove shared library and headers
+cmake .. [-DCMAKE_BUILD_TYPE=Release]	# prepare e.g. Release version
+sudo make install			# install shared library to the default location: /usr/local
+sudo make uninstall			# remove shared library and headers
 ```
 
 To install this library into other locations, pass appropriate value to cmake
 using CMAKE_INSTALL_PREFIX variable like this:
 
 ```sh
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr [-DCMAKE_BUILD_TYPE=Release]
 sudo make install		# install to path specified by CMAKE_INSTALL_PREFIX
 sudo make uninstall		# remove shared library and headers from path specified by CMAKE_INSTALL_PREFIX
 ```
 
-**Out-of-source builds**
+### Out-of-source builds
 
 If the standard build does not suit your needs, create your own
 out-of-source build and run tests like this:
@@ -212,50 +219,19 @@ Finally [build and install pmemkv from sources](#building-from-sources).
 To enable experimental engine(s) use adequate CMake parameter, e.g.:
 
 ```sh
-cmake .. -DENGINE_CACHING=ON
+cmake .. -DENGINE_CSMAP=ON
 ```
 
 Now build will contain selected experimental engine(s) and their dependencies, that are not available by default.
 
-Additional libraries (not listed above, in prerequisites section) are required only by caching engine. If you want to use it
-you need to follow these instructions:
-
-First build and install `pmemkv` as described above. Then, install client libraries for Memcached:
-
-```sh
-cd ~
-mkdir work
-cd work
-wget https://launchpad.net/libmemcached/1.0/0.21/+download/libmemcached-0.21.tar.gz
-tar -xvf libmemcached-0.21.tar.gz
-mv libmemcached-0.21 libmemcached
-cd libmemcached
-./configure
-make
-su -c 'make install'
-```
-
-Install client libraries for Redis:
-
-```sh
-cd ~
-mkdir work
-cd work
-git clone https://github.com/acl-dev/acl.git
-mv acl libacl
-cd libacl/lib_acl_cpp
-make
-cd ../lib_acl
-make
-cd ../lib_protocol
-make
-```
+Experimental engines may require additional libraries, see **prerequisites** section of a selected
+engine in [ENGINES-experimental.md](doc/ENGINES-experimental.md).
 
 ## Building packages
 
 ```sh
 ...
-cmake .. -DCPACK_GENERATOR="$GEN" -DCMAKE_INSTALL_PREFIX=/usr
+cmake .. -DCPACK_GENERATOR="$GEN" -DCMAKE_INSTALL_PREFIX=/usr [-DCMAKE_BUILD_TYPE=Release]
 make -j$(nproc) package
 ```
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2020, Intel Corporation */
+/* Copyright 2020-2021, Intel Corporation */
 
 #include "unittest.hpp"
 
@@ -14,32 +14,37 @@ static void TransactionTest(pmem::obj::pool_base &pmemobj_pool, pmem::kv::db &kv
 {
 
 	std::string value;
-	UT_ASSERT(kv.get("key1", &value) == status::NOT_FOUND);
+	ASSERT_STATUS(kv.get(entry_from_string("key1"), &value), status::NOT_FOUND);
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
-		UT_ASSERT(kv.put("key1", "value1") == status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(
+			kv.put(entry_from_string("key1"), entry_from_string("value1")),
+			status::TRANSACTION_SCOPE_ERROR);
 	});
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
-		UT_ASSERT(kv.get("key1", &value) == status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(kv.get(entry_from_string("key1"), &value),
+			      status::TRANSACTION_SCOPE_ERROR);
 	});
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
-		UT_ASSERT(kv.remove("key1") == status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(kv.remove(entry_from_string("key1")),
+			      status::TRANSACTION_SCOPE_ERROR);
 	});
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
-		UT_ASSERT(kv.exists("key1") == status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(kv.exists(entry_from_string("key1")),
+			      status::TRANSACTION_SCOPE_ERROR);
 	});
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
-		UT_ASSERT(kv.get_all([&](pmem::kv::string_view key,
-					 pmem::kv::string_view value) { return 0; }) ==
-			  status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(kv.get_all([&](pmem::kv::string_view key,
+					     pmem::kv::string_view value) { return 0; }),
+			      status::TRANSACTION_SCOPE_ERROR);
 	});
 
 	pmem::obj::transaction::run(pmemobj_pool, [&] {
 		size_t cnt;
-		UT_ASSERT(kv.count_all(cnt) == status::TRANSACTION_SCOPE_ERROR);
+		ASSERT_STATUS(kv.count_all(cnt), status::TRANSACTION_SCOPE_ERROR);
 	});
 }

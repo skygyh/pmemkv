@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2019, Intel Corporation */
+/* Copyright 2019-2021, Intel Corporation */
 
 #ifndef LIBPMEMKV_PMEMOBJ_ENGINE_H
 #define LIBPMEMKV_PMEMOBJ_ENGINE_H
@@ -28,7 +28,8 @@ namespace kv
 template <typename EngineData>
 class pmemobj_engine_base : public engine_base {
 public:
-	pmemobj_engine_base(std::unique_ptr<internal::config> &cfg)
+	pmemobj_engine_base(std::unique_ptr<internal::config> &cfg,
+			    const std::string &layout)
 	{
 		const char *path = nullptr;
 		std::size_t size;
@@ -53,14 +54,23 @@ public:
 
 			pmem::obj::pool<Root> pop;
 			if (force_create) {
-				if (!cfg->get_uint64("size", &size))
+				if (!cfg->get_uint64("size", &size)) {
 					throw internal::invalid_argument(
 						"Config does not contain item with key: \"size\"");
+				}
 
-				pop = pmem::obj::pool<Root>::create(path, LAYOUT, size,
-								    S_IRWXU);
+				try {
+					pop = pmem::obj::pool<Root>::create(
+						path, layout, size, S_IRWXU);
+				} catch (pmem::pool_invalid_argument &e) {
+					throw internal::invalid_argument(e.what());
+				}
 			} else {
-				pop = pmem::obj::pool<Root>::open(path, LAYOUT);
+				try {
+					pop = pmem::obj::pool<Root>::open(path, layout);
+				} catch (pmem::pool_invalid_argument &e) {
+					throw internal::invalid_argument(e.what());
+				}
 			}
 
 			root_oid = pop.root()->ptr.raw_ptr();

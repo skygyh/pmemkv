@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2018-2020, Intel Corporation */
+/* Copyright 2018-2021, Intel Corporation */
 
 #ifndef PMEMKV_UNITTEST_HPP
 #define PMEMKV_UNITTEST_HPP
@@ -20,6 +20,7 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <type_traits>
@@ -89,6 +90,31 @@ static inline void UT_EXCEPTION(std::exception &e)
 				 STR(type), checkpoint, off);                            \
 	} while (0)
 
+#define ASSERT_STATUS(status, expected_status)                                           \
+	do {                                                                             \
+		auto current_status = status;                                            \
+		UT_ASSERTeq(current_status, expected_status);                            \
+		std::string expected_string = #expected_status;                          \
+		expected_string.erase(0, expected_string.rfind(":") + 1);                \
+		expected_string +=                                                       \
+			" (" + std::to_string(static_cast<int>(expected_status)) + ")";  \
+		std::ostringstream oss;                                                  \
+		oss << current_status;                                                   \
+		if (oss.str() != expected_string)                                        \
+			UT_FATAL("%s:%d %s - wrong status message (%s), should be: %s",  \
+				 __FILE__, __LINE__, __func__, oss.str().c_str(),        \
+				 expected_string.c_str());                               \
+	} while (0)
+
+#define ASSERT_SIZE(kv, expected_size)                                                   \
+	do {                                                                             \
+		size_t cnt;                                                              \
+		ASSERT_STATUS(kv.count_all(cnt), pmem::kv::status::OK);                  \
+		UT_ASSERTeq(cnt, expected_size);                                         \
+	} while (0)
+
+static std::string currently_tested;
+
 static inline int run_test(std::function<void()> test)
 {
 	test_register_sighandlers();
@@ -156,9 +182,11 @@ pmem::kv::config CONFIG_FROM_JSON(std::string json)
 
 pmem::kv::db INITIALIZE_KV(std::string engine, pmem::kv::config &&config)
 {
+	currently_tested = engine;
+
 	pmem::kv::db kv;
 	auto s = kv.open(engine, std::move(config));
-	UT_ASSERTeq(s, pmem::kv::status::OK);
+	ASSERT_STATUS(s, pmem::kv::status::OK);
 
 	return kv;
 }
@@ -173,7 +201,7 @@ void CLEAR_KV(pmem::kv::db &kv)
 	});
 
 	for (auto &k : keys)
-		kv.remove(k);
+		ASSERT_STATUS(kv.remove(k), pmem::kv::status::OK);
 }
 
 #ifdef JSON_TESTS_SUPPORT
@@ -202,6 +230,43 @@ static inline int run_engine_tests(std::string engine, std::string json,
 static inline pmem::kv::string_view uint64_to_strv(uint64_t &key)
 {
 	return pmem::kv::string_view((char *)&key, sizeof(uint64_t));
+}
+
+/* It creates a string that contains 8 bytes from uint64_t. */
+static inline std::string uint64_to_string(uint64_t &key)
+{
+	return std::string(reinterpret_cast<const char *>(&key), 8);
+}
+
+/* It aligns entry to a certain size. It is useful for testing engines with fixed-size
+ * keys. */
+static inline std::string align_to_size(size_t size, std::string str,
+					char char_to_fill = 'x')
+{
+	if (str.size() > size) {
+		UT_FATAL((str + " - too long entry for the engine: " + currently_tested)
+				 .c_str());
+	}
+
+	return str + std::string(size - str.size(), char_to_fill);
+}
+
+/* It returns an entry filled/shrank to a certain size. It's necessary during testing
+ * engines with fixed size keys/values */
+static inline std::string entry_from_string(std::string str)
+{
+	if (currently_tested == "robinhood")
+		return align_to_size(8, str);
+
+	return str;
+}
+
+static inline std::string entry_from_number(size_t number, std::string prefix = "",
+					    std::string postfix = "")
+{
+	std::string res = prefix + std::to_string(number) + postfix;
+
+	return entry_from_string(res);
 }
 
 #endif /* PMEMKV_UNITTEST_HPP */

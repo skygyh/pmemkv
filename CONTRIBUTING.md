@@ -5,6 +5,7 @@
 - [Submitting Pull Requests](#submitting-pull-requests)
 - [Creating New Engines](#creating-new-engines)
 - [Creating Experimental Engines](#creating-experimental-engines)
+- [Configuring GitHub fork](#configuring-github-fork)
 
 # Opening New Issues
 
@@ -36,6 +37,9 @@ make cppformat
 # Submitting Pull Requests
 
 We take outside code contributions to `PMEMKV` through GitHub pull requests.
+
+If you add a new feature, implement a new engine or fix a critical bug please append
+appropriate entry to ChangeLog under newest release.
 
 **NOTE: If you do decide to implement code changes and contribute them,
 please make sure you agree your contribution can be made available under the
@@ -96,11 +100,7 @@ Next we'll walk you through the steps of creating a new engine.
 * Relatively short (users will have to type this!)
 * Formatted in all lower-case
 * No whitespace or special characters
-* Names should use common prefixes to denote capabilities:
-  - prefix of "v" denotes volatile (persistent if omitted), appears first
-  - prefix of "c" denotes concurrent (single-threaded if omitted), appears second
-  - prefix of "s" denotes sorted (unsorted if omitted), appears last
-* For this example: `mytree` (persistent, single-threaded, unsorted)
+* For this example: `mytree`
 
 ### Creating Engine Header
 
@@ -192,4 +192,34 @@ As noted in the example above, the experimental CMake module should use `-experi
 
 ### Documentation
 
-* In `ENGINES-experimental.md`, add `mytree` section
+* In `doc/ENGINES-experimental.md`, add `mytree` section
+
+# Configuring GitHub fork
+
+To build and submit documentation as an automatically generated pull request,
+the repository has to be properly configured.
+
+* [Personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) for GitHub account has to be generated.
+  * Such personal access token has to be set in pmemkv repository's
+  [secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets)
+  as `DOC_UPDATE_GITHUB_TOKEN` variable.
+
+* `DOC_UPDATE_BOT_NAME` secret variable has to be set. In most cases it will be
+  the same as GitHub account name.
+
+* `DOC_REPO_OWNER` secret variable has to be set. Name of the GitHub account,
+  which will be target to make an automatic pull request with documentation.
+  In most cases it will be the same as GitHub account name.
+
+To enable automatic images pushing to GitHub Container Registry, following variables:
+
+* `CONTAINER_REG` existing environment variable (defined in workflow files, in .github/ directory)
+  has to be updated to contain proper GitHub Container Registry address (to forking user's container registry),
+
+* `GH_CR_USER` secret variable has to be set up - an account (with proper permissions) to publish
+  images to the Container Registry (tab **Packages** in your GH profile/organization).
+
+* `GH_CR_PAT` secret variable also has to be set up - Personal Access Token
+  (with only read & write packages permissions), to be generated as described
+  [here](https://docs.github.com/en/free-pro-team@latest/github/authenticating-to-github/creating-a-personal-access-token#creating-a-token)
+  for selected account (user defined in above variable).

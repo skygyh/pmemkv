@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019-2020, Intel Corporation
+# Copyright 2019-2021, Intel Corporation
 
 #
 # run-test-building.sh - is called inside a Docker container,
@@ -16,6 +16,8 @@ source `dirname $0`/prepare-for-build.sh
 TEST_DIR=${PMEMKV_TEST_DIR:-${DEFAULT_TEST_DIR}}
 TEST_PACKAGES=${TEST_PACKAGES:-ON}
 BUILD_JSON_CONFIG=${BUILD_JSON_CONFIG:-ON}
+TESTS_USE_FORCED_PMEM=${TESTS_USE_FORCED_PMEM:-ON}
+TEST_TIMEOUT=${TEST_TIMEOUT:-600}
 
 ###############################################################################
 # BUILD test_gcc_cpp20
@@ -32,18 +34,18 @@ function test_gcc_cpp20() {
 		-DBUILD_JSON_CONFIG=${BUILD_JSON_CONFIG} \
 		-DCOVERAGE=$COVERAGE \
 		-DDEVELOPER_MODE=1 \
+		-DTESTS_USE_FORCED_PMEM=${TESTS_USE_FORCED_PMEM} \
 		-DCXX_STANDARD=20
 
 	make -j$(nproc)
 	# Run basic tests
-	ctest -R "SimpleTest" --output-on-failure
+	ctest -R "SimpleTest" --output-on-failure --timeout ${TEST_TIMEOUT}
 
 	if [ "$COVERAGE" == "1" ]; then
 		upload_codecov test_gcc_cpp20
 	fi
 
-	cd $CWD
-	rm -rf $WORKDIR/build
+	workspace_cleanup
 
 	printf "$(tput setaf 1)$(tput setab 7)BUILD ${FUNCNAME[0]} END$(tput sgr 0)\n\n"
 }
@@ -95,8 +97,7 @@ function test_building_of_packages() {
 		sudo_password rpm -e --nodeps libpmemkv-devel
 	fi
 
-	cd $WORKDIR
-	rm -rf $WORKDIR/build
+	workspace_cleanup
 
 	printf "$(tput setaf 1)$(tput setab 7)BUILD ${FUNCNAME[0]} END$(tput sgr 0)\n\n"
 }
@@ -119,13 +120,14 @@ function build_with_flags() {
 	# list all tests in this build
 	ctest -N
 
-	cd $WORKDIR
-	rm -rf $WORKDIR/build
+	workspace_cleanup
 
 	printf "$(tput setaf 1)$(tput setab 7)BUILD ${FUNCNAME[0]} END$(tput sgr 0)\n\n"
 }
 
 # Main:
+
+workspace_cleanup
 cd $WORKDIR
 
 # CXX_STANDARD==20 is supported since CMake 3.12
@@ -142,11 +144,11 @@ engines_flags=(
 	ENGINE_VCMAP
 	ENGINE_CMAP
 	ENGINE_CSMAP
-	# XXX: caching engine requires libacl and memcached installed in docker images
-	# and firstly we need to remove hardcoded INCLUDE paths (see #244)
-	# ENGINE_CACHING
 	ENGINE_STREE
 	ENGINE_TREE3
+	ENGINE_RADIX
+	ENGINE_ROBINHOOD
+	ENGINE_DRAM_VCMAP
 	# the last item is to test all engines disabled
 	BLACKHOLE_TEST
 )
@@ -170,10 +172,9 @@ do
 	make -j$(nproc)
 	# list all tests in this build
 	ctest -N
-	ctest -R wrong_engine_name_test --output-on-failure
+	ctest -R wrong_engine_name_test --output-on-failure --timeout ${TEST_TIMEOUT}
 
-	cd $WORKDIR
-	rm -rf $WORKDIR/build
+	workspace_cleanup
 done
 
 echo
@@ -190,13 +191,15 @@ cmake .. -DCXX_STANDARD=14 \
 	-DENGINE_CSMAP=ON \
 	-DENGINE_STREE=ON \
 	-DENGINE_TREE3=ON \
+	-DENGINE_RADIX=ON \
+	-DENGINE_ROBINHOOD=ON \
+	-DENGINE_DRAM_VCMAP=ON \
 	-DBUILD_JSON_CONFIG=${BUILD_JSON_CONFIG}
 make -j$(nproc)
 # list all tests in this build
 ctest -N
 
-cd $WORKDIR
-rm -rf $WORKDIR/build
+workspace_cleanup
 
 echo
 echo "##############################################################"
@@ -213,16 +216,3 @@ case $PACKAGE_MANAGER in
 		echo "Notice: skipping building of packages because PACKAGE_MANAGER is not equal 'rpm' nor 'deb' ..."
 		;;
 esac
-
-# Trigger auto doc update
-if [[ "$AUTO_DOC_UPDATE" == "1" ]]; then
-	echo "Running auto doc update"
-
-	mkdir -p $WORKDIR/doc_update
-	cd $WORKDIR/doc_update
-
-	$SCRIPTSDIR/run-doc-update.sh
-
-	cd $WORKDIR
-	rm -rf $WORKDIR/doc_update
-fi

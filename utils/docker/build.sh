@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2017-2020, Intel Corporation
+# Copyright 2017-2021, Intel Corporation
 
 #
 # build.sh - runs a Docker container from a Docker image with environment
-#            prepared for running pmemkv build and tests.
-#
+#		prepared for running pmemkv builds and tests. It uses Docker image
+#		tagged as described in ./images/build-image.sh.
 #
 # Notes:
 # - run this script from its location or set the variable 'HOST_WORKDIR' to
@@ -18,22 +18,8 @@
 set -e
 
 source $(dirname $0)/set-ci-vars.sh
-source $(dirname $0)/set-vars.sh
-source $(dirname $0)/valid-branches.sh
-
-if [[ "$CI_EVENT_TYPE" != "cron" && "$CI_BRANCH" != "coverity_scan" \
-	&& "$TYPE" == "coverity" ]]; then
-	echo "INFO: Skip Coverity scan job if build is triggered neither by " \
-		"'cron' nor by a push to 'coverity_scan' branch"
-	exit 0
-fi
-
-if [[ ( "$CI_EVENT_TYPE" == "cron" || "$CI_BRANCH" == "coverity_scan" )\
-	&& "$TYPE" != "coverity" ]]; then
-	echo "INFO: Skip regular jobs if build is triggered either by 'cron'" \
-		" or by a push to 'coverity_scan' branch"
-	exit 0
-fi
+IMG_VER=${IMG_VER:-devel}
+TAG="${OS}-${OS_VER}-${IMG_VER}"
 
 if [[ -z "$OS" || -z "$OS_VER" ]]; then
 	echo "ERROR: The variables OS and OS_VER have to be set " \
@@ -47,7 +33,7 @@ if [[ -z "$HOST_WORKDIR" ]]; then
 	exit 1
 fi
 
-imageName=${DOCKERHUB_REPO}:1.2-${OS}-${OS_VER}
+imageName=${CONTAINER_REG}:${TAG}
 containerName=pmemkv-${OS}-${OS_VER}
 
 if [[ "$command" == "" ]]; then
@@ -82,6 +68,9 @@ if [[ "$command" == "" ]]; then
 		bindings)
 			command="./run-bindings.sh";
 			;;
+		doc)
+			command="./run-doc-update.sh";
+			;;
 		*)
 			echo "ERROR: wrong build TYPE"
 			exit 1
@@ -94,11 +83,6 @@ if [ "$COVERAGE" == "1" ]; then
 fi
 
 if [ -n "$DNS_SERVER" ]; then DNS_SETTING=" --dns=$DNS_SERVER "; fi
-
-# Only run doc update on $GITHUB_REPO master or stable branch
-if [[ -z "${CI_BRANCH}" || -z "${TARGET_BRANCHES[${CI_BRANCH}]}" || "$CI_EVENT_TYPE" == "pull_request" || "$CI_REPO_SLUG" != "${GITHUB_REPO}" ]]; then
-	AUTO_DOC_UPDATE=0
-fi
 
 # Check if we are running on a CI (Travis or GitHub Actions)
 [ -n "$GITHUB_ACTIONS" -o -n "$TRAVIS" ] && CI_RUN="YES" || CI_RUN="NO"
@@ -120,10 +104,10 @@ docker run --privileged=true --name=$containerName -i $TTY \
 	${docker_opts} \
 	--env http_proxy=$http_proxy \
 	--env https_proxy=$https_proxy \
+	--env TERM=xterm-256color \
 	--env WORKDIR=$WORKDIR \
 	--env SCRIPTSDIR=$SCRIPTSDIR \
 	--env COVERAGE=$COVERAGE \
-	--env AUTO_DOC_UPDATE=$AUTO_DOC_UPDATE \
 	--env CI_RUN=$CI_RUN \
 	--env TRAVIS=$TRAVIS \
 	--env GITHUB_REPO=$GITHUB_REPO \
@@ -132,13 +116,23 @@ docker run --privileged=true --name=$containerName -i $TTY \
 	--env CI_REPO_SLUG=$CI_REPO_SLUG \
 	--env CI_BRANCH=$CI_BRANCH \
 	--env CI_EVENT_TYPE=$CI_EVENT_TYPE \
-	--env GITHUB_TOKEN=$GITHUB_TOKEN \
+	--env GITHUB_ACTIONS=$GITHUB_ACTIONS \
+	--env GITHUB_HEAD_REF=$GITHUB_HEAD_REF \
+	--env GITHUB_REPO=$GITHUB_REPO \
+	--env GITHUB_REPOSITORY=$GITHUB_REPOSITORY \
+	--env GITHUB_REF=$GITHUB_REF \
+	--env GITHUB_RUN_ID=$GITHUB_RUN_ID \
+	--env GITHUB_SHA=$GITHUB_SHA \
+	--env DOC_UPDATE_GITHUB_TOKEN=$DOC_UPDATE_GITHUB_TOKEN \
+	--env DOC_UPDATE_BOT_NAME=$DOC_UPDATE_BOT_NAME \
+	--env DOC_REPO_OWNER=$DOC_REPO_OWNER \
 	--env COVERITY_SCAN_TOKEN=$COVERITY_SCAN_TOKEN \
 	--env COVERITY_SCAN_NOTIFICATION_EMAIL=$COVERITY_SCAN_NOTIFICATION_EMAIL \
 	--env TEST_PACKAGES=${TEST_PACKAGES:-ON} \
 	--env TESTS_LONG=${TESTS_LONG:-OFF} \
+	--env TEST_TIMEOUT=${TEST_TIMEOUT} \
 	--env BUILD_JSON_CONFIG=${BUILD_JSON_CONFIG:-ON} \
-	--env CHECK_CPP_STYLE=${CHECK_CPP_STYLE:-ON} \
+	--env CHECK_CPP_STYLE=${CHECK_CPP_STYLE:-OFF} \
 	--env DEFAULT_TEST_DIR=/dev/shm \
 	--shm-size=4G \
 	-v $HOST_WORKDIR:$WORKDIR \

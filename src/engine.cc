@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2017-2020, Intel Corporation */
+/* Copyright 2017-2021, Intel Corporation */
 
 #include "engine.h"
 
@@ -21,8 +21,8 @@
 #include "engines-experimental/csmap.h"
 #endif
 
-#ifdef ENGINE_CACHING
-#include "engines-experimental/caching.h"
+#ifdef ENGINE_RADIX
+#include "engines-experimental/radix.h"
 #endif
 
 #ifdef ENGINE_STREE
@@ -31,6 +31,14 @@
 
 #ifdef ENGINE_TREE3
 #include "engines-experimental/tree3.h"
+#endif
+
+#ifdef ENGINE_ROBINHOOD
+#include "engines-experimental/robinhood.h"
+#endif
+
+#ifdef ENGINE_DRAM_VCMAP
+#include "engines-testing/dram_vcmap.h"
 #endif
 
 namespace pmem
@@ -53,6 +61,9 @@ static constexpr const char *available_engines = "blackhole"
 #ifdef ENGINE_CSMAP
 						 ", csmap"
 #endif
+#ifdef ENGINE_RADIX
+						 ", radix"
+#endif
 #ifdef ENGINE_VSMAP
 						 ", vsmap"
 #endif
@@ -65,8 +76,11 @@ static constexpr const char *available_engines = "blackhole"
 #ifdef ENGINE_STREE
 						 ", stree"
 #endif
-#ifdef ENGINE_CACHING
-						 ", caching"
+#ifdef ENGINE_ROBINHOOD
+						 ", robinhood"
+#endif
+#ifdef ENGINE_DRAM_VCMAP
+						 ", dram_vcmap"
 #endif
 	;
 
@@ -102,6 +116,13 @@ engine_base::create_engine(const std::string &engine,
 	}
 #endif
 
+#ifdef ENGINE_RADIX
+	if (engine == "radix") {
+		engine_base::check_config_null(engine, cfg);
+		return std::unique_ptr<engine_base>(new pmem::kv::radix(std::move(cfg)));
+	}
+#endif
+
 #ifdef ENGINE_VSMAP
 	if (engine == "vsmap") {
 		engine_base::check_config_null(engine, cfg);
@@ -130,11 +151,19 @@ engine_base::create_engine(const std::string &engine,
 	}
 #endif
 
-#ifdef ENGINE_CACHING
-	if (engine == "caching") {
+#ifdef ENGINE_ROBINHOOD
+	if (engine == "robinhood") {
 		engine_base::check_config_null(engine, cfg);
 		return std::unique_ptr<engine_base>(
-			new pmem::kv::caching(std::move(cfg)));
+			new pmem::kv::robinhood(std::move(cfg)));
+	}
+#endif
+
+#ifdef ENGINE_DRAM_VCMAP
+	if (engine == "dram_vcmap") {
+		engine_base::check_config_null(engine, cfg);
+		return std::unique_ptr<engine_base>(
+			new pmem::kv::dram_vcmap(std::move(cfg)));
 	}
 #endif
 
@@ -210,6 +239,21 @@ status engine_base::exists(string_view key)
 status engine_base::defrag(double start_percent, double amount_percent)
 {
 	return status::NOT_SUPPORTED;
+}
+
+internal::transaction *engine_base::begin_tx()
+{
+	throw internal::not_supported("Transactions are not supported in this engine");
+}
+
+engine_base::iterator *engine_base::new_iterator()
+{
+	throw internal::not_supported("Iterators are not supported in this engine");
+}
+
+engine_base::iterator *engine_base::new_const_iterator()
+{
+	throw internal::not_supported("Iterators are not supported in this engine");
 }
 
 } // namespace kv

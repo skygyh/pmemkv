@@ -1,21 +1,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019-2020, Intel Corporation
+# Copyright 2019-2021, Intel Corporation
 
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
 function(set_version VERSION)
-	set(VERSION_FILE ${CMAKE_SOURCE_DIR}/VERSION)
+	set(VERSION_FILE ${PMEMKV_ROOT_DIR}/VERSION)
 	if(EXISTS ${VERSION_FILE})
-		file(READ ${VERSION_FILE} FILE_VERSION)
-		string(REPLACE "[\r\n]" "" FILE_VERSION ${FILE_VERSION})
-		string(STRIP ${FILE_VERSION} FILE_VERSION)
+		file(STRINGS ${VERSION_FILE} FILE_VERSION)
 		set(VERSION ${FILE_VERSION} PARENT_SCOPE)
 		return()
 	endif()
 
 	execute_process(COMMAND git describe
-			OUTPUT_VARIABLE GIT_VERSION)
+			OUTPUT_VARIABLE GIT_VERSION
+			WORKING_DIRECTORY ${PMEMKV_ROOT_DIR}
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET)
 	if(GIT_VERSION)
 		# 1.5-rc1-19-gb8f78a329 -> 1.5-rc1.git19.gb8f78a329
 		string(REGEX MATCHALL
@@ -41,34 +42,10 @@ function(set_version VERSION)
 		endif()
 	else()
 		execute_process(COMMAND git log -1 --format=%h
-				OUTPUT_VARIABLE GIT_COMMIT)
-		set(VERSION
-			${GIT_COMMIT}
-			PARENT_SCOPE)
-	endif()
-endfunction()
-
-function(find_pmemcheck)
-	set(ENV{PATH} ${VALGRIND_PREFIX}/bin:$ENV{PATH})
-	execute_process(COMMAND valgrind --tool=pmemcheck --help
-			RESULT_VARIABLE VALGRIND_PMEMCHECK_RET
-			OUTPUT_QUIET
-			ERROR_QUIET)
-	if(VALGRIND_PMEMCHECK_RET)
-		set(VALGRIND_PMEMCHECK_FOUND 0 CACHE INTERNAL "")
-	else()
-		set(VALGRIND_PMEMCHECK_FOUND 1 CACHE INTERNAL "")
-	endif()
-
-	if(VALGRIND_PMEMCHECK_FOUND)
-		execute_process(COMMAND valgrind --tool=pmemcheck true
-				ERROR_VARIABLE PMEMCHECK_OUT
-				OUTPUT_QUIET)
-
-		string(REGEX MATCH ".*pmemcheck-([0-9.]+),.*" PMEMCHECK_OUT "${PMEMCHECK_OUT}")
-		set(PMEMCHECK_VERSION ${CMAKE_MATCH_1} CACHE INTERNAL "")
-	else()
-		message(WARNING "Valgrind pmemcheck NOT found. Pmemcheck tests will not be performed.")
+				OUTPUT_VARIABLE GIT_COMMIT
+				WORKING_DIRECTORY ${PMEMKV_ROOT_DIR}
+				OUTPUT_STRIP_TRAILING_WHITESPACE)
+		set(VERSION ${GIT_COMMIT} PARENT_SCOPE)
 	endif()
 endfunction()
 
@@ -87,7 +64,7 @@ function(add_cppstyle name)
 	if(${ARGC} EQUAL 1)
 		add_custom_target(cppstyle-${name}
 			COMMAND ${PERL_EXECUTABLE}
-				${CMAKE_SOURCE_DIR}/utils/cppstyle
+				${PMEMKV_ROOT_DIR}/utils/cppstyle
 				${CLANG_FORMAT}
 				check
 				${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -95,7 +72,7 @@ function(add_cppstyle name)
 			)
 		add_custom_target(cppformat-${name}
 			COMMAND ${PERL_EXECUTABLE}
-				${CMAKE_SOURCE_DIR}/utils/cppstyle
+				${PMEMKV_ROOT_DIR}/utils/cppstyle
 				${CLANG_FORMAT}
 				format
 				${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
@@ -104,14 +81,14 @@ function(add_cppstyle name)
 	else()
 		add_custom_target(cppstyle-${name}
 			COMMAND ${PERL_EXECUTABLE}
-				${CMAKE_SOURCE_DIR}/utils/cppstyle
+				${PMEMKV_ROOT_DIR}/utils/cppstyle
 				${CLANG_FORMAT}
 				check
 				${ARGN}
 			)
 		add_custom_target(cppformat-${name}
 			COMMAND ${PERL_EXECUTABLE}
-				${CMAKE_SOURCE_DIR}/utils/cppstyle
+				${PMEMKV_ROOT_DIR}/utils/cppstyle
 				${CLANG_FORMAT}
 				format
 				${ARGN}
@@ -132,7 +109,7 @@ function(add_check_whitespace name)
 
 	add_custom_target(check-whitespace-${name}
 		COMMAND ${PERL_EXECUTABLE}
-			${CMAKE_SOURCE_DIR}/utils/check_whitespace ${ARGN})
+			${PMEMKV_ROOT_DIR}/utils/check_whitespace ${ARGN})
 
 	add_dependencies(check-whitespace check-whitespace-${name})
 endfunction()

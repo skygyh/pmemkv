@@ -1,15 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019, Intel Corporation
+# Copyright 2019-2020, Intel Corporation
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.3)
 project(pmemkv_config C)
 
-find_package(PkgConfig QUIET)
-if(PKG_CONFIG_FOUND)
-	pkg_check_modules(LIBPMEMKV REQUIRED libpmemkv libpmemkv_json_config)
-else()
-	message(FATAL_ERROR "pkg-config not found")
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBPMEMKV REQUIRED libpmemkv libpmemkv_json_config)
 
 include_directories(${LIBPMEMKV_INCLUDE_DIRS})
 link_directories(${LIBPMEMKV_LIBRARY_DIRS})

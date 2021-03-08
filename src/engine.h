@@ -9,16 +9,18 @@
 #include <string>
 
 #include "config.h"
+#include "iterator.h"
 #include "libpmemkv.hpp"
+#include "transaction.h"
 
 namespace pmem
 {
 namespace kv
 {
 
-const std::string LAYOUT = "pmemkv";
-
 class engine_base {
+	using iterator = internal::iterator_base;
+
 public:
 	engine_base();
 
@@ -53,6 +55,11 @@ public:
 	virtual status put(string_view key, string_view value) = 0;
 	virtual status remove(string_view key) = 0;
 	virtual status defrag(double start_percent, double amount_percent);
+
+	virtual internal::transaction *begin_tx();
+
+	virtual iterator *new_iterator();
+	virtual iterator *new_const_iterator();
 
 private:
 	static void check_config_null(const std::string &engine_name,
