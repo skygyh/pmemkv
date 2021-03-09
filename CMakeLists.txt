@@ -41,7 +41,8 @@ option(ENGINE_DRAM_VCMAP "enable testing dram_vcmap engine" OFF)
 
 # ----------------------------------------------------------------- #
 ## Set required and useful variables
-set(CXX_STANDARD 14)
+#set(CXX_STANDARD 14)
+set(CXX_STANDARD 11 CACHE STRING "C++ language standard")
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD ${CXX_STANDARD})
