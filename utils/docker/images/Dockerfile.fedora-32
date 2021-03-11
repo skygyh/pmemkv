@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2016-2020, Intel Corporation
+# Copyright 2016-2021, Intel Corporation
 
 #
 # Dockerfile - a 'recipe' for Docker to build an image of Fedora-based
@@ -8,7 +8,7 @@
 
 # Pull base image
 FROM fedora:32
-MAINTAINER szymon.romik@intel.com
+MAINTAINER igor.chorazewicz@intel.com
 
 # Set required environment variables
 ENV OS fedora
@@ -50,6 +50,7 @@ RUN dnf update -y \
 	pandoc \
 	passwd \
 	perl-Text-Diff \
+	rapidjson-devel \
 	rpm-build \
 	sudo \
 	tbb-devel \
@@ -61,10 +62,6 @@ RUN dnf update -y \
 # Install glibc-debuginfo
 RUN dnf debuginfo-install -y glibc
 
-# Install rapidjson from sources
-COPY install-rapidjson.sh install-rapidjson.sh
-RUN ./install-rapidjson.sh
-
 # Install valgrind
 COPY install-valgrind.sh install-valgrind.sh
 RUN ./install-valgrind.sh
@@ -75,7 +72,7 @@ RUN ./install-pmdk.sh rpm
 
 # Install pmdk c++ bindings
 COPY install-libpmemobj-cpp.sh install-libpmemobj-cpp.sh
-RUN ./install-libpmemobj-cpp.sh RPM
+RUN ./install-libpmemobj-cpp.sh rpm
 
 # Add user
 ENV USER user

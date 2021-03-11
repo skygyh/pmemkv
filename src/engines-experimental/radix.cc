@@ -8,6 +8,53 @@ namespace pmem
 {
 namespace kv
 {
+namespace internal
+{
+namespace radix
+{
+transaction::transaction(pmem::obj::pool_base &pop, map_type *container)
+    : pop(pop), container(container)
+{
+}
+
+status transaction::put(string_view key, string_view value)
+{
+	log.insert(key, value);
+	return status::OK;
+}
+
+status transaction::remove(string_view key)
+{
+	log.remove(key);
+	return status::OK;
+}
+
+status transaction::commit()
+{
+	auto insert_cb = [&](const dram_log::element_type &e) {
+		auto result = container->try_emplace(e.first, e.second);
+
+		if (result.second == false)
+			result.first.assign_val(e.second);
+	};
+
+	auto remove_cb = [&](const dram_log::element_type &e) {
+		container->erase(e.first);
+	};
+
+	pmem::obj::transaction::run(pop, [&] { log.foreach (insert_cb, remove_cb); });
+
+	log.clear();
+
+	return status::OK;
+}
+
+void transaction::abort()
+{
+	log.clear();
+}
+} /* namespace radix */
+} /* namespace internal */
 
 radix::radix(std::unique_ptr<internal::config> cfg)
     : pmemobj_engine_base(cfg, "pmemkv_radix"), config(std::move(cfg))
@@ -231,7 +278,7 @@ status radix::put(string_view key, string_view value)
 		       << ", value.size=" << std::to_string(value.size()));
 	check_outside_tx();
 
-	auto result = container->emplace(key, value);
+	auto result = container->try_emplace(key, value);
 
 	if (result.second == false) {
 		pmem::obj::transaction::run(pmpool,
@@ -256,6 +303,11 @@ status radix::remove(string_view key)
 	return status::OK;
 }
 
+internal::transaction *radix::begin_tx()
+{
+	return new internal::radix::transaction(pmpool, container);
+}
+
 void radix::Recover()
 {
 	if (!OID_IS_NULL(*root_oid)) {
@@ -274,6 +326,195 @@ void radix::Recover()
 			container = &pmem_ptr->map;
 		});
 	}
+}
+
+internal::iterator_base *radix::new_iterator()
+{
+	return new radix_iterator<false>{container};
+}
+
+internal::iterator_base *radix::new_const_iterator()
+{
+	return new radix_iterator<true>{container};
+}
+
+radix::radix_iterator<true>::radix_iterator(container_type *c)
+    : container(c), pop(pmem::obj::pool_by_vptr(c))
+{
+}
+
+radix::radix_iterator<false>::radix_iterator(container_type *c)
+    : radix::radix_iterator<true>(c)
+{
+}
+
+status radix::radix_iterator<true>::seek(string_view key)
+{
+	init_seek();
+
+	it_ = container->find(key);
+	if (it_ != container->end())
+		return status::OK;
+
+	return status::NOT_FOUND;
+}
+
+status radix::radix_iterator<true>::seek_lower(string_view key)
+{
+	init_seek();
+
+	it_ = container->lower_bound(key);
+	if (it_ == container->begin()) {
+		it_ = container->end();
+		return status::NOT_FOUND;
+	}
+
+	--it_;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::seek_lower_eq(string_view key)
+{
+	init_seek();
+
+	it_ = container->upper_bound(key);
+	if (it_ == container->begin()) {
+		it_ = container->end();
+		return status::NOT_FOUND;
+	}
+
+	--it_;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::seek_higher(string_view key)
+{
+	init_seek();
+
+	it_ = container->upper_bound(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::seek_higher_eq(string_view key)
+{
+	init_seek();
+
+	it_ = container->lower_bound(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::seek_to_first()
+{
+	init_seek();
+
+	if (container->empty())
+		return status::NOT_FOUND;
+
+	it_ = container->begin();
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::seek_to_last()
+{
+	init_seek();
+
+	if (container->empty())
+		return status::NOT_FOUND;
+
+	it_ = container->end();
+	--it_;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::is_next()
+{
+	auto tmp = it_;
+	if (tmp == container->end() || ++tmp == container->end())
+		return status::NOT_FOUND;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::next()
+{
+	init_seek();
+
+	if (it_ == container->end() || ++it_ == container->end())
+		return status::NOT_FOUND;
+
+	return status::OK;
+}
+
+status radix::radix_iterator<true>::prev()
+{
+	init_seek();
+
+	if (it_ == container->begin())
+		return status::NOT_FOUND;
+
+	--it_;
+
+	return status::OK;
+}
+
+result<string_view> radix::radix_iterator<true>::key()
+{
+	assert(it_ != container->end());
+
+	return {it_->key().cdata()};
+}
+
+result<pmem::obj::slice<const char *>> radix::radix_iterator<true>::read_range(size_t pos,
+									       size_t n)
+{
+	assert(it_ != container->end());
+
+	if (pos + n > it_->value().size() || pos + n < pos)
+		n = it_->value().size() - pos;
+
+	return {{it_->value().cdata() + pos, it_->value().cdata() + pos + n}};
+}
+
+result<pmem::obj::slice<char *>> radix::radix_iterator<false>::write_range(size_t pos,
+									   size_t n)
+{
+	assert(it_ != container->end());
+
+	if (pos + n > it_->value().size() || pos + n < pos)
+		n = it_->value().size() - pos;
+
+	log.push_back({std::string(it_->value().cdata() + pos, n), pos});
+	auto &val = log.back().first;
+
+	return {{&val[0], &val[n]}};
+}
+
+status radix::radix_iterator<false>::commit()
+{
+	pmem::obj::transaction::run(pop, [&] {
+		for (auto &p : log) {
+			auto dest = it_->value().range(p.second, p.first.size());
+			std::copy(p.first.begin(), p.first.end(), dest.begin());
+		}
+	});
+	log.clear();
+
+	return status::OK;
+}
+
+void radix::radix_iterator<false>::abort()
+{
+	log.clear();
 }
 
 } // namespace kv

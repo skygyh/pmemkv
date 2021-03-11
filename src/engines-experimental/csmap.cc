@@ -212,6 +212,7 @@ status csmap::get_floor_entry(string_view key, get_kv_callback *callback, void *
 	LOG("get_floor_entry key<" << std::string(key.data(), key.size()));
 	check_outside_tx();
 	shared_global_lock_type global_lock(mtx);
+    /*
 	auto it = container->lower_bound(key);
 
         if (it != container->end() && container->key_comp()(it->first, key) == 0) {
@@ -228,9 +229,14 @@ status csmap::get_floor_entry(string_view key, get_kv_callback *callback, void *
         // FIXME: Current skip_list_iterator not implement decrement operator!
         // FIXME: Need uncommnet the below line, or get_floor_entry does not work
         // --it;
-        shared_node_lock_type node_lock(it->second.mtx);
-        callback((*it).first.c_str(), (*it).first.size(),
-                 (*it).second.val.c_str(), (*it).second.val.size(), arg);
+    */
+    auto it = container->find_lower_eq(key);
+    if (it == container->end())
+        return status::NOT_FOUND;
+    shared_node_lock_type node_lock(it->second.mtx);
+    callback((*it).first.c_str(), (*it).first.size(),
+        (*it).second.val.c_str(), (*it).second.val.size(), arg);
+
 	return status::OK;
 }
 
@@ -238,18 +244,24 @@ status csmap::get_floor_entry(string_view key, get_kv_callback *callback, void *
 // or status::NOT_FOUND if there is no such key.
 status csmap::get_ceiling_entry(string_view key, get_kv_callback *callback, void *arg)
 {
-	LOG("get_floor_entry key<" << std::string(key.data(), key.size()));
+	LOG("get_ceiling_entry key<" << std::string(key.data(), key.size()));
 	check_outside_tx();
 	shared_global_lock_type global_lock(mtx);
+    /*
 	auto it = container->lower_bound(key);
 
         if (it == container->end()) {
             return status::NOT_FOUND;
         }
+    */
 
-        shared_node_lock_type node_lock(it->second.mtx);
-        callback((*it).first.c_str(), (*it).first.size(),
-                 (*it).second.val.c_str(), (*it).second.val.size(), arg);
+    auto it = container->find_higher_eq(key);
+    if (it == container->end())
+        return status::NOT_FOUND;
+    shared_node_lock_type node_lock(it->second.mtx);
+    callback((*it).first.c_str(), (*it).first.size(),
+        (*it).second.val.c_str(), (*it).second.val.size(), arg);
+
 	return status::OK;
 }
 
@@ -487,6 +499,189 @@ void csmap::bidirection_iterator::seek_for_next(string_view &key)
 	++m_cur;
 }
 
+internal::iterator_base *csmap::new_iterator()
+{
+	return new csmap_iterator<false>{container, mtx};
+}
+
+internal::iterator_base *csmap::new_const_iterator()
+{
+	return new csmap_iterator<true>{container, mtx};
+}
+
+csmap::csmap_iterator<true>::csmap_iterator(container_type *c, global_mutex_type &mtx)
+    : container(c), lock(mtx), pop(pmem::obj::pool_by_vptr(c))
+{
+}
+
+csmap::csmap_iterator<false>::csmap_iterator(container_type *c, global_mutex_type &mtx)
+    : csmap::csmap_iterator<true>(c, mtx)
+{
+}
+
+status csmap::csmap_iterator<true>::seek(string_view key)
+{
+	init_seek();
+
+	it_ = container->find(key);
+	if (it_ == container->end()) {
+		return status::NOT_FOUND;
+	}
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::seek_lower(string_view key)
+{
+	init_seek();
+
+	it_ = container->find_lower(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::seek_lower_eq(string_view key)
+{
+	init_seek();
+
+	it_ = container->find_lower_eq(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::seek_higher(string_view key)
+{
+	init_seek();
+
+	it_ = container->find_higher(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::seek_higher_eq(string_view key)
+{
+	init_seek();
+
+	it_ = container->find_higher_eq(key);
+	if (it_ == container->end())
+		return status::NOT_FOUND;
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::seek_to_first()
+{
+	init_seek();
+
+	if (container->empty())
+		return status::NOT_FOUND;
+
+	it_ = container->begin();
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::is_next()
+{
+	auto tmp = it_;
+	if (tmp == container->end() || ++tmp == container->end())
+		return status::NOT_FOUND;
+
+	return status::OK;
+}
+
+status csmap::csmap_iterator<true>::next()
+{
+	init_seek();
+
+	if (it_ == container->end() || ++it_ == container->end())
+		return status::NOT_FOUND;
+
+	node_lock = csmap::unique_node_lock_type(it_->second.mtx);
+
+	return status::OK;
+}
+
+result<string_view> csmap::csmap_iterator<true>::key()
+{
+	assert(it_ != container->end());
+
+	return {it_->first.cdata()};
+}
+
+result<pmem::obj::slice<const char *>> csmap::csmap_iterator<true>::read_range(size_t pos,
+									       size_t n)
+{
+	assert(it_ != container->end());
+
+	if (pos + n > it_->second.val.size() || pos + n < pos)
+		n = it_->second.val.size() - pos;
+
+	return {it_->second.val.crange(pos, n)};
+}
+
+result<pmem::obj::slice<char *>> csmap::csmap_iterator<false>::write_range(size_t pos,
+									   size_t n)
+{
+	assert(it_ != container->end());
+
+	if (pos + n > it_->second.val.size() || pos + n < pos)
+		n = it_->second.val.size() - pos;
+
+	log.push_back({{it_->second.val.cdata() + pos, n}, pos});
+	auto &val = log.back().first;
+
+	return {{&val[0], &val[n]}};
+}
+
+status csmap::csmap_iterator<false>::commit()
+{
+	pmem::obj::transaction::run(pop, [&] {
+		for (auto &p : log) {
+			auto dest = it_->second.val.range(p.second, p.first.size());
+			std::copy(p.first.begin(), p.first.end(), dest.begin());
+		}
+	});
+	log.clear();
+
+	return status::OK;
+}
+
+void csmap::csmap_iterator<false>::abort()
+{
+	log.clear();
+}
+
+void csmap::csmap_iterator<true>::init_seek()
+{
+	if (it_ != container->end())
+		node_lock.unlock();
+}
+
+void csmap::csmap_iterator<false>::init_seek()
+{
+	csmap::csmap_iterator<true>::init_seek();
+
+	log.clear();
+}
 
 } // namespace kv
 } // namespace pmem

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright 2019-2020, Intel Corporation
+# Copyright 2019-2021, Intel Corporation
 
 #
 # install-libpmemobj-cpp.sh <package_type>
@@ -18,8 +18,8 @@ PREFIX="/usr"
 PACKAGE_TYPE=${1^^} #To uppercase
 echo "PACKAGE_TYPE: ${PACKAGE_TYPE}"
 
-# 1.11; 30.09.2020
-LIBPMEMOBJ_CPP_VERSION="1.11"
+# 1.12; 15.02.2021
+LIBPMEMOBJ_CPP_VERSION="b570268bec37735df1d4591605c0c7b2077c7bed"
 echo "LIBPMEMOBJ_CPP_VERSION: ${LIBPMEMOBJ_CPP_VERSION}"
 
 build_dir=$(mktemp -d -t libpmemobj-cpp-XXX)

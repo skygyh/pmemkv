@@ -75,6 +75,13 @@ void null_db_all_funcs_test()
 
 	s = pmemkv_defrag(NULL, 0, 100);
 	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	pmemkv_tx *tx;
+	s = pmemkv_tx_begin(NULL, &tx);
+	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_tx_begin((pmemkv_db *)0x1, NULL);
+	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
 }
 
 void null_config_test(const char *engine)
@@ -102,6 +109,92 @@ void null_db_test(const char *engine)
 	/* Config should be deleted by pmemkv */
 }
 
+void null_tx_test(const char *engine)
+{
+	const char *key1 = "key1";
+
+	int s = pmemkv_tx_put(NULL, key1, strlen(key1), key1, strlen(key1));
+	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_tx_remove(NULL, key1, strlen(key1));
+	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_tx_commit(NULL);
+	UT_ASSERT(s == PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	pmemkv_tx_end(NULL);
+}
+
+void null_iterator_all_funcs_test()
+{
+	/**
+	 * TEST: null passed as iterator to pmemkv_* functions
+	 */
+	pmemkv_iterator *it1;
+	pmemkv_write_iterator *it2;
+	size_t cnt;
+	const char *key1 = "key1";
+	const char *val1;
+	char *val2;
+
+	int s = pmemkv_iterator_new(NULL, &it1);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_write_iterator_new(NULL, &it2);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek(NULL, key1, strlen(key1));
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_lower(NULL, key1, strlen(key1));
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_lower_eq(NULL, key1, strlen(key1));
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_higher(NULL, key1, strlen(key1));
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_higher_eq(NULL, key1, strlen(key1));
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_to_first(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_seek_to_last(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_is_next(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_next(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_prev(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_key(NULL, &val1, &cnt);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_iterator_read_range(NULL, 0, 10, &val1, &cnt);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_write_iterator_write_range(NULL, 0, 10, &val2, &cnt);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	s = pmemkv_write_iterator_commit(NULL);
+	UT_ASSERTeq(s, PMEMKV_STATUS_INVALID_ARGUMENT);
+
+	/* returns void */
+	pmemkv_write_iterator_abort(NULL);
+
+	/* returns void */
+	pmemkv_iterator_delete(NULL);
+
+	/* returns void */
+	pmemkv_write_iterator_delete(NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	START();
@@ -112,6 +205,7 @@ int main(int argc, char *argv[])
 	null_db_all_funcs_test();
 	null_config_test(argv[1]);
 	null_db_test(argv[1]);
+	null_iterator_all_funcs_test();
 
 	return 0;
 }

@@ -112,9 +112,7 @@ pipeline {
 								TEST_DIR = "/dev/shm"
 								break
 							}
-						def ENV_VAL="export DEFAULT_TEST_DIR=${TEST_DIR}; export WORKDIR=${WORKSPACE_DIR}/${PMEMKV_DIR}; export SCRIPTSDIR=\$WORKDIR/utils/docker; export TESTS_LONG=ON; ${COV_PARAM}"
-						/* Specified Java version must be used for bindings */
-						def JAVA_HOME="JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64"
+						def ENV_VAL="export DEFAULT_TEST_DIR=${TEST_DIR}; export WORKDIR=${WORKSPACE_DIR}/${PMEMKV_DIR}; export SCRIPTSDIR=\$WORKDIR/utils/docker; export TESTS_LONG=ON; export TERM=xterm-256color; export TEST_TIMEOUT=3600; export TESTS_USE_FORCED_PMEM=0; ${COV_PARAM}"
 						libs.api.echo_header("Running test type: ${params.TEST_TYPE}")
 						dir("${PMEMKV_PATH}/utils/docker")
 						{
@@ -145,7 +143,7 @@ pipeline {
 									""")
 									break;
 								default:
-									throw new java.lang.UnsupportedOperationException("TEST_TYPE value '${params.TEST_TYPE}' is not supported. Select: normal, building, bindings, compatibility or coverity.");
+									throw new java.lang.UnsupportedOperationException("TEST_TYPE value '${params.TEST_TYPE}' is not supported. Select: normal, building or compatibility.");
 							}
 						}
 						libs.api.echo_header("Finished running tests.")

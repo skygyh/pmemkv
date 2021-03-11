@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-/* Copyright 2020, Intel Corporation */
+/* Copyright 2020-2021, Intel Corporation */
 
 #include "unittest.hpp"
 
@@ -12,17 +12,19 @@ static void SimpleMultithreadedTest(const size_t threads_number,
 		size_t begin = thread_id * thread_items;
 		size_t end = begin + thread_items;
 		for (auto i = begin; i < end; i++) {
-			std::string istr = std::to_string(i);
-			ASSERT_STATUS(kv.put(istr, (istr + "!")), status::OK);
+			std::string key = entry_from_number(i);
+			std::string val = entry_from_number(i, "", "!");
+			ASSERT_STATUS(kv.put(key, val), status::OK);
 			std::string value;
-			ASSERT_STATUS(kv.get(istr, &value), status::OK);
-			UT_ASSERT(value == (istr + "!"));
+			ASSERT_STATUS(kv.get(key, &value), status::OK);
+			UT_ASSERT(value == val);
 		}
 		for (auto i = begin; i < end; i++) {
-			std::string istr = std::to_string(i);
+			std::string key = entry_from_number(i);
+			std::string val = entry_from_number(i, "", "!");
 			std::string value;
-			ASSERT_STATUS(kv.get(istr, &value), status::OK);
-			UT_ASSERT(value == (istr + "!"));
+			ASSERT_STATUS(kv.get(key, &value), status::OK);
+			UT_ASSERT(value == val);
 		}
 	});
 	std::size_t cnt = std::numeric_limits<std::size_t>::max();
@@ -36,8 +38,9 @@ static void MultithreadedTestRemoveDataAside(const size_t threads_number,
 	size_t initial_items = 128;
 	/* put initial data, which won't be touched */
 	for (size_t i = 0; i < initial_items; i++) {
-		std::string istr = "init_" + std::to_string(i);
-		ASSERT_STATUS(kv.put(istr, (istr + "!")), status::OK);
+		std::string key = entry_from_number(i, "in_");
+		std::string val = entry_from_number(i, "in_", "!");
+		ASSERT_STATUS(kv.put(key, val), status::OK);
 	}
 
 	/* test adding and removing data */
@@ -45,15 +48,17 @@ static void MultithreadedTestRemoveDataAside(const size_t threads_number,
 		size_t begin = thread_id * thread_items;
 		size_t end = begin + thread_items;
 		for (auto i = begin; i < end; i++) {
-			std::string istr = std::to_string(i);
-			ASSERT_STATUS(kv.put(istr, (istr + "!")), status::OK);
+			std::string key = entry_from_number(i);
+			std::string val = entry_from_number(i, "", "!");
+			ASSERT_STATUS(kv.put(key, val), status::OK);
 		}
 		for (auto i = begin; i < end; i++) {
-			std::string istr = std::to_string(i);
+			std::string key = entry_from_number(i);
+			std::string val = entry_from_number(i, "", "!");
 			std::string value;
-			ASSERT_STATUS(kv.get(istr, &value), status::OK);
-			UT_ASSERT(value == (istr + "!"));
-			ASSERT_STATUS(kv.remove(istr), status::OK);
+			ASSERT_STATUS(kv.get(key, &value), status::OK);
+			UT_ASSERT(value == val);
+			ASSERT_STATUS(kv.remove(key), status::OK);
 		}
 	});
 	std::size_t cnt = std::numeric_limits<std::size_t>::max();
@@ -62,10 +67,46 @@ static void MultithreadedTestRemoveDataAside(const size_t threads_number,
 
 	/* get initial data and confirm it's untouched */
 	for (size_t i = 0; i < initial_items; i++) {
-		std::string istr = "init_" + std::to_string(i);
+		std::string key = entry_from_number(i, "in_");
+		std::string val = entry_from_number(i, "in_", "!");
 		std::string value;
-		ASSERT_STATUS(kv.get(istr, &value), status::OK);
-		UT_ASSERT(value == (istr + "!"));
+		ASSERT_STATUS(kv.get(key, &value), status::OK);
+		UT_ASSERT(value == val);
+	}
+}
+
+static void MultithreadedPutRemove(const size_t threads_number, const size_t thread_items,
+				   pmem::kv::db &kv)
+{
+	size_t initial_items = threads_number * thread_items;
+	for (size_t i = 0; i < initial_items; i++) {
+		std::string key = entry_from_number(i);
+		std::string value = entry_from_number(i, "", "!");
+		ASSERT_STATUS(kv.put(key, value), status::OK);
+	}
+
+	parallel_exec(threads_number, [&](size_t thread_id) {
+		if (thread_id < threads_number / 2) {
+			for (size_t i = 0; i < initial_items; i++) {
+				std::string key = entry_from_number(i);
+				std::string value = entry_from_number(i, "", "!");
+				ASSERT_STATUS(kv.put(key, value), status::OK);
+			}
+		} else {
+			for (size_t i = 0; i < initial_items; i++) {
+				std::string key = entry_from_number(i);
+				auto s = kv.remove(key);
+				UT_ASSERT(s == status::OK || s == status::NOT_FOUND);
+			}
+		}
+	});
+
+	for (size_t i = 0; i < initial_items; i++) {
+		std::string key = entry_from_number(i);
+		std::string value = entry_from_number(i, "", "!");
+		std::string val;
+		auto s = kv.get(key, &val);
+		UT_ASSERT((s == status::OK && val == value) || s == status::NOT_FOUND);
 	}
 }
 
@@ -84,6 +125,8 @@ static void test(int argc, char *argv[])
 					   thread_items, _1),
 				 std::bind(MultithreadedTestRemoveDataAside,
 					   threads_number, thread_items, _1),
+				 std::bind(MultithreadedPutRemove, threads_number,
+					   thread_items, _1),
 			 });
 }
 

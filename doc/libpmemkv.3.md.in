@@ -8,15 +8,15 @@ secondary_title: pmemkv
 ...
 
 [comment]: <> (SPDX-License-Identifier: BSD-3-Clause)
-[comment]: <> (Copyright 2019-2020, Intel Corporation)
+[comment]: <> (Copyright 2019-2021, Intel Corporation)
 
 [comment]: <> (libpmemkv.3 -- man page for libpmemkv)
 
 [NAME](#name)<br />
 [SYNOPSIS](#synopsis)<br />
 [DESCRIPTION](#description)<br />
-[EXAMPLE](#example)<br />
 [ERRORS](#errors)<br />
+[EXAMPLE](#example)<br />
 [SEE ALSO](#see-also)<br />
 
 
@@ -66,6 +66,7 @@ const char *pmemkv_errormsg(void);
 ```
 
 For pmemkv configuration API description see **libpmemkv_config**(3).
+For pmemkv iterator API description see **libpmemkv_iterator**(3).
 For general pmemkv information, engine descriptions and bindings details see **libpmemkv**(7).
 
 # DESCRIPTION #
@@ -228,6 +229,10 @@ is to compare status with PMEMKV_STATUS_OK.
 
 # EXAMPLE #
 
+The following example is taken from `examples/pmemkv_basic_c` directory.
+
+Basic pmemkv usage in C:
+
 ```c
 @C_EXAMPLE@
 ```
@@ -256,4 +261,4 @@ value.append(ptr, sz);
 
 # SEE ALSO #
 
-**libpmemkv**(7), **libpmemkv_config**(3) and **<https://pmem.io>**
+**libpmemkv**(7), **libpmemkv_config**(3), **libpmemkv_iterator**(3) and **<https://pmem.io>**
